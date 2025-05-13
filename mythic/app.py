@@ -31,16 +31,17 @@ class MainAppWindow(QMainWindow):
 
     def show_view(self, view_class):
         """Loads the selected view dynamically and updates background."""
-        # Instantiate new view
-        new_view = view_class(self.container, self)
+        if not issubclass(view_class, QWidget):  # Ensure view_class is a QWidget subclass
+            print(f"Error: {view_class} is not a valid QWidget subclass.")
+            return
+
+        new_view = view_class(self.container, self)  # Pass only `self` as the parent
         self.container.addWidget(new_view)
         self.container.setCurrentWidget(new_view)
 
-        # Update background dynamically based on the new view
         if hasattr(new_view, "get_background_image"):
             self.update_background(new_view.get_background_image())
 
-        # Update reference to current view
         self.current_view = new_view
 
     def update_background(self, image_path):

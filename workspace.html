@@ -1,0 +1,11 @@
+        # **Add Close Button**
+        close_button = QPushButton("Close", self)
+        close_button.setFont(QFont("Arial", 14, QFont.Bold))
+        close_button.setStyleSheet("""
+            padding: 10px;
+            background-color: maroon;
+            color: white;
+            border: 2px solid black;
+        """)
+        close_button.clicked.connect(lambda: self.controller.show_view(NewStoryView))  # Navigate back
+        self.layout.addWidget(close_button, row_index, 8, 1, 4, alignment=Qt.AlignCenter)  # Positioning button

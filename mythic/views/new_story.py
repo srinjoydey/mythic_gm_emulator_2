@@ -19,3 +19,43 @@ class NewStoryView(QWidget):
     def get_background_image(self):
         """Returns the background image path for this view."""
         return self.ui.bg_image_path  # UI manages background image selection
+    
+class CharactersList(QWidget):
+    """Handles main menu logic & navigation."""
+    def __init__(self, parent, controller):
+        from ui.new_story_ui import CharactersThreadsTablesUI
+
+        super().__init__(parent)
+        self.controller = controller
+
+        # Attach UI with navigation logic
+        self.ui = CharactersThreadsTablesUI(self, controller)
+        self.setLayout(self.ui.layout)  # Use UI's layout directly
+
+    def update_dimensions(self, width, height):
+        """Propagate resizing logic to UI component."""
+        self.ui.update_dimensions(width, height)
+
+    def get_background_image(self):
+        """Returns the background image path for this view."""
+        return self.ui.bg_image_path  # UI manages background image selection
+
+class ThreadsList(QWidget):
+    """Handles main menu logic & navigation."""
+    def __init__(self, parent, controller):
+        from ui.new_story_ui import CharactersThreadsTablesUI
+
+        super().__init__(parent)
+        self.controller = controller
+
+        # Attach UI with navigation logic
+        self.ui = CharactersThreadsTablesUI(self, controller)
+        self.setLayout(self.ui.layout)  # Use UI's layout directly
+
+    def update_dimensions(self, width, height):
+        """Propagate resizing logic to UI component."""
+        self.ui.update_dimensions(width, height)
+
+    def get_background_image(self):
+        """Returns the background image path for this view."""
+        return self.ui.bg_image_path  # UI manages background image selection

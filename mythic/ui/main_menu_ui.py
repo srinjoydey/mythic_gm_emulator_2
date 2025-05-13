@@ -11,7 +11,7 @@ class MainMenuUI(QWidget):
         self.controller = controller
 
         # Define background image path (now managed here)
-        self.bg_image_path = "assets/default_bg.jpg"
+        self.bg_image_path = "assets/main_menu.jpg"
 
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
@@ -24,7 +24,7 @@ class MainMenuUI(QWidget):
         # Title Label (Centered)
         self.title_label = QLabel("GM Mythic Emulator", self)
         self.title_label.setFont(QFont("Arial", 28))
-        # Apply transparent background and colored border
+        # Apply transparent background
         self.title_label.setStyleSheet("""
             background-color: transparent;
             padding: 10px;
@@ -40,6 +40,13 @@ class MainMenuUI(QWidget):
         self.button_layout.setContentsMargins(0, 100, 0, 0) 
         self.layout.addWidget(self.button_frame, 1, 2, 2, 2, alignment=Qt.AlignBottom | Qt.AlignRight)
 
+        self.create_buttons()
+
+        # **Call update_dimensions() on initialization**
+        self.update_dimensions(self.width(), self.height())
+
+    def create_buttons(self):
+        """Creates buttons dynamically with optimized layout."""
         # Define menu buttons dynamically
         self.buttons = [
             ("New Story", new_story.NewStoryView),
@@ -49,16 +56,13 @@ class MainMenuUI(QWidget):
             ("Artifacts", artifacts.ArtifactsView),
         ]
 
-        self.create_buttons()
-
-    def create_buttons(self):
-        """Creates buttons dynamically with optimized layout."""
         button_width, button_height = 250, 60
         button_font_size = 10
 
         for text, view in self.buttons:
             btn = QPushButton(text, self.button_frame)
             btn.setFont(QFont("Arial", button_font_size))
+            btn.setMinimumSize(button_width, button_height)
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             btn.clicked.connect(lambda checked, v=view: self.controller.show_view(v))
             self.button_layout.addWidget(btn)
