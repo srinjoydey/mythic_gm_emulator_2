@@ -60,8 +60,8 @@ class MainAppWindow(QMainWindow):
 
             self.bg_label.setPixmap(pixmap)
             self.bg_label.setGeometry(self.rect())  # Adjust to window size
-        except Exception as e:
-            print(f"Error loading background image: {e}")
+        except AttributeError as e:
+            pass
 
     def resizeEvent(self, event):
         """Handles window resizing and updates background dynamically."""

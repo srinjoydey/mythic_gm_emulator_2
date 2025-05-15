@@ -13,16 +13,16 @@ class ScrollCheckUI(QWidget):
         self.setStyleSheet("background-color: white;")
 
         # **Main Layout (Non-Scrollable)**
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)  # Keep margins fixed
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)  # Keep margins fixed
 
-        # **Create Transparent Container for Close Button Row (Outside Scrollable Area)**
-        close_row_container = QWidget(self)  # Place outside scroll_widget
-        close_row_container.setStyleSheet("background-color: transparent;")  # Make only this row transparent
+        # **Create Transparent Container for Close Button Row**
+        close_row_container = QWidget(self)
+        close_row_container.setStyleSheet("background-color: transparent;")
 
         # **Add Close Button Inside Transparent Container**
         close_button = QPushButton(close_row_container)
-        close_button.setIcon(QIcon("assets/icons/close_icon.png"))  # Add an icon
+        close_button.setIcon(QIcon("assets/icons/close_icon.png"))
         close_button.setFont(QFont("Arial", 14, QFont.Bold))
         close_button.setStyleSheet("""
             padding: 10px;
@@ -30,90 +30,83 @@ class ScrollCheckUI(QWidget):
             color: maroon;
             border: 2px solid black;
         """)
-        close_button.clicked.connect(lambda: self.controller.show_view(NewStoryView))  # Navigate back
+        close_button.clicked.connect(lambda: self.controller.show_view(NewStoryView))
 
         # **Add Close Button to Transparent Container**
-        close_row_container_layout = QVBoxLayout(close_row_container)
-        close_row_container_layout.setContentsMargins(0, 0, 0, 0)
-        close_row_container_layout.addWidget(close_button, alignment=Qt.AlignCenter)
+        close_row_layout = QVBoxLayout(close_row_container)
+        close_row_layout.addWidget(close_button, alignment=Qt.AlignCenter)
 
-        # **Add Transparent Row to Main Layout (Above Scrollable Area)**
-        self.main_layout.addWidget(close_row_container)
+        # **Add Transparent Row to Main Layout**
+        self.layout.addWidget(close_row_container)
+
+        # **Create a Container for the Table (Adds Left & Right Margins)**
+        table_container = QWidget(self)
+        table_container_layout = QVBoxLayout(table_container)
+        table_container_layout.setContentsMargins(50, 0, 50, 0)  # Adds space on left & right
 
         # **Create Scroll Area**
-        scroll_area = QScrollArea(self)
-        scroll_area.setWidgetResizable(True)  # Allow resizing
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)  # Enable vertical scrolling
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)  # Enable horizontal scrolling
+        scroll_area = QScrollArea(table_container)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
         # **Create Scrollable Content Widget**
         scroll_widget = QWidget()
-        scroll_widget.setAutoFillBackground(False)  # Prevent background filling
         scroll_layout = QGridLayout(scroll_widget)
         scroll_layout.setSpacing(0)
-        scroll_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins inside the scrollable area
 
         # Define section labels (spanning 5 rows each)
         section_labels = ["1 - 2", "3 - 4", "5 - 6", "7 - 8", "9 - 10"]
 
         # Create table structure
         row_index = 0
-        for section_index, section_label in enumerate(section_labels):
-            # Add section label (spans 5 rows, 2 columns)
+        for section_label in section_labels:
+            # **Section Label (Spans 5 Rows, 2 Columns)**
             section_label_widget = QLabel(section_label, scroll_widget)
             section_label_widget.setFont(QFont("Arial", 14, QFont.Bold))
             section_label_widget.setAlignment(Qt.AlignCenter)
             section_label_widget.setStyleSheet("""
-                border-top: 1px solid black; 
-                border-bottom: 1.5px solid black; 
-                border-left: 2px solid black; 
-                border-right: 2px solid black; 
-                padding: 5px; 
-                background-color: white; 
-                color: black; 
+                border: 2px solid black;
+                padding: 5px;
+                background-color: white;
+                color: black;
                 font-weight: bold;
             """)
-            scroll_layout.addWidget(section_label_widget, row_index, 0, 5, 2)  # Spanning 5 rows, 2 columns
+            scroll_layout.addWidget(section_label_widget, row_index, 0, 5, 2)
 
-            # Add row labels within the section (each row spans 2 columns)
+            # **Row Labels & Table Cells**
             for i in range(5):
-                # Determine border thickness
                 border_bottom = "2px solid black" if i == 4 else "1px solid black"
 
-                # Second column (row labels within section, spans 2 columns)
                 row_label = QLabel(section_labels[i], scroll_widget)
                 row_label.setFont(QFont("Arial", 12, QFont.Bold))
                 row_label.setAlignment(Qt.AlignCenter)
                 row_label.setStyleSheet(f"""
-                    border-top: 1px solid black; 
-                    border-bottom: {border_bottom}; 
-                    border-left: 2px solid black; 
-                    border-right: 2px solid black; 
-                    padding: 5px; 
-                    background-color: white; 
-                    color: black; 
+                    border: 2px solid black;
+                    padding: 5px;
+                    background-color: white;
+                    color: black;
                     font-weight: bold;
                 """)
-                scroll_layout.addWidget(row_label, row_index, 2, 1, 2)  # Spanning 2 columns
+                scroll_layout.addWidget(row_label, row_index, 2, 1, 2)
 
-                # Third column (table content, spans remaining 8 columns)
                 table_cell = QLabel("", scroll_widget)
                 table_cell.setStyleSheet(f"""
-                    border-top: 1px solid black; 
-                    border-bottom: {border_bottom}; 
-                    border-left: 2px solid black; 
-                    border-right: 2px solid black; 
-                    padding: 10px; 
+                    border: 2px solid black;
+                    padding: 10px;
                     background-color: white;
                 """)
-                scroll_layout.addWidget(table_cell, row_index, 4, 1, 8)  # Spanning 8 columns
+                scroll_layout.addWidget(table_cell, row_index, 4, 1, 8)
 
-                row_index += 1  # Move to the next row
+                row_index += 1
 
         # **Set Scrollable Widget Inside Scroll Area**
         scroll_area.setWidget(scroll_widget)
 
-        # **Add Scroll Area to Main Layout (Below Transparent Row)**
-        self.main_layout.addWidget(scroll_area)
+        # **Add Scroll Area to Table Container**
+        table_container_layout.addWidget(scroll_area)
 
-        self.setLayout(self.main_layout)  # Ensure full layout usage
+        # **Add Table Container to Main Layout**
+        self.layout.addWidget(table_container)
+
+        self.setLayout(self.layout)  # Ensure full layout usage
