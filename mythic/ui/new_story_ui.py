@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit
+from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtCore import Qt, QSize
 
@@ -204,12 +204,31 @@ class CharactersThreadsTablesUI(QWidget):
                     background-color: white;
                 """)
 
+                scroll_layout.addWidget(table_cell, row_index, 4, 1, 6)
+
+                dropdown_cell = QComboBox(scroll_widget)
+                dropdown_cell.addItems([None, "character", "place", "item"])
+                # dropdown_cell.setAlignment(Qt.AlignCenter)                
+                dropdown_cell.setStyleSheet(f"""
+                    border-top: 1px solid black;
+                    border-bottom: {border_bottom};
+                    border-right: 1px solid black;
+                    border-left: 1px solid black;
+                    padding: 10px;
+                    color: black;
+                    font-size: 16px;
+                    background-color: white;
+                    text-align: center;
+                """)                
+                dropdown_cell.setEditable(False)
+                dropdown_cell.setEnabled(False)
+
                 # **Signal to Send Updated Text to View**
                 # table_cell.textChanged.connect(lambda row_data, row=row_index: self.edited_row_data(row, row_data))
-                table_cell.editingFinished.connect(lambda row=row_index, field=table_cell: self.edited_row_data(row, field))
+                table_cell.editingFinished.connect(lambda row=row_index, field=table_cell, dropdown=dropdown_cell: self.enable_dropdown(row, field, dropdown))
+                dropdown_cell.currentIndexChanged.connect(lambda row=row_index, field=table_cell, dropdown=dropdown_cell: self.edited_row_data(row, field, dropdown))
 
-
-                scroll_layout.addWidget(table_cell, row_index, 4, 1, 8)
+                scroll_layout.addWidget(dropdown_cell, row_index, 10, 1, 2)
 
                 row_index += 1
 
@@ -225,10 +244,19 @@ class CharactersThreadsTablesUI(QWidget):
         self.setLayout(self.layout)  # Ensure full layout usage
 
 
-    def edited_row_data(self, row, field):
+    def enable_dropdown(self, row, field, dropdown):
+        """Enable dropdown only after text is entered in QLineEdit."""
+        if field.text().strip():  # Ensure field is not empty
+            dropdown.setEnabled(True)
+
+    def edited_row_data(self, row, field, dropdown):
         """Stores the edited row data and removes cursor focus."""
-        self.edited_rows_data_dict[row] = field.text()  # Store the edited text
-        field.clearFocus()  # Removes focus so the cursor disappears
+        if dropdown.currentText():
+            self.edited_rows_data_dict[row] = {
+                "data": field.text(),  # Store the edited text
+                "type": dropdown.currentText()  # Store selected dropdown value
+            }
+            field.clearFocus()  # Removes focus so the cursor disappears
 
     def send_edited_rows_data_dict(self):
         return self.edited_rows_data_dict
