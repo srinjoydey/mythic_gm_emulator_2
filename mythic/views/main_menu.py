@@ -33,6 +33,10 @@ class NewStoryView(QWidget):
         self.ui = NewStoryUI(self, controller)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
+    def receive_edited_rows_data(self, data):
+        """Receives edited data from UI when closing."""
+        print("Final Edited Data:", data)        
+
     def update_dimensions(self, width, height):
         """Propagate resizing logic to UI component."""
         self.ui.update_dimensions(width, height)

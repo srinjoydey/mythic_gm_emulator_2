@@ -53,7 +53,7 @@ class CharactersList(QWidget):
 class ThreadsList(QWidget):
     """Handles main menu logic & navigation."""
     def __init__(self, parent, controller):
-        from ui.new_story_ui import CharactersThreadsTablesUI
+        from ui.game_dashboard_ui import CharactersThreadsTablesUI
 
         super().__init__(parent)
         self.controller = controller
