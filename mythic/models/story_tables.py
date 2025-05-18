@@ -20,11 +20,23 @@ class ThreadsList:
 class Characters:
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    race = Column(String, nullable=False)
-    age = Column(String, nullable=False)
-    role_profession = Column(String, nullable=False)
-    social_status = Column(String, nullable=False)
-    economic_status = Column(String, nullable=False)
+    race = Column(String, nullable=True)
+    age = Column(String, nullable=True)
+    role_profession = Column(String, nullable=True)
+    social_status = Column(String, nullable=True)
+    economic_status = Column(String, nullable=True)
+
+class Places:
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    weather = Column(String, nullable=False)
+    smell = Column(String, nullable=False)
+
+class Items:
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    material = Column(String, nullable=False)
+    rarity = Column(String, nullable=False)
 
 class Threads:
     id = Column(Integer, primary_key=True)

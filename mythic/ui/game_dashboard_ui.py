@@ -1,16 +1,17 @@
+from functools import partial
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtCore import Qt, QSize
 
 
-class NewStoryUI(QWidget):
+class GameDashboardUI(QWidget):
     """UI Layout for Main Menu with buttons and styling."""
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
         # Define background image path (now managed here)
-        self.bg_image_path = "assets/new_story.jpg"
+        self.bg_image_path = "assets/game_dashboard.png"
 
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
@@ -21,7 +22,7 @@ class NewStoryUI(QWidget):
             self.layout.setRowStretch(i, 1)
 
         # Title Label (Centered)
-        self.title_label = QLabel("New Story", self)
+        self.title_label = QLabel("Game Dashboard", self)
         self.title_label.setFont(QFont("Arial", 28))
         # Apply transparent background
         self.title_label.setStyleSheet("""
@@ -43,15 +44,12 @@ class NewStoryUI(QWidget):
 
     def create_buttons(self):
         """Creates buttons dynamically with optimized layout."""
-        from views.new_story import CharactersList, ThreadsList
+        from views.game_dashboard import CharactersList, ThreadsList
 
         # Define menu buttons dynamically
         self.buttons = [
-            # ("New Story", new_story.NewStoryView),
             ("Characters", CharactersList),
             ("Threads", ThreadsList),
-            # ("Scroll Check", ScrollCheck),
-            # ("Artifacts", artifacts.ArtifactsView),
         ]        
         button_width, button_height = 250, 60
         button_font_size = 20
@@ -78,7 +76,7 @@ class NewStoryUI(QWidget):
 class CharactersThreadsTablesUI(QWidget):
     """UI Layout with both horizontal and vertical scrolling."""
     def __init__(self, parent, controller, table_label):
-        from views.new_story import NewStoryView
+        from views.game_dashboard import GameDashboardView
 
         super().__init__(parent)
         self.controller = controller
@@ -119,10 +117,8 @@ class CharactersThreadsTablesUI(QWidget):
         """)
         close_button.clicked.connect(lambda: (
             self.controller.current_view.receive_edited_rows_data(self.send_edited_rows_data_dict()),
-            self.controller.show_view(NewStoryView)
+            self.controller.show_view(GameDashboardView)
         ))
-
-
 
         # **Add Close Button to Transparent Container**
         close_row_layout = QHBoxLayout(close_row_container)
@@ -225,8 +221,8 @@ class CharactersThreadsTablesUI(QWidget):
 
                 # **Signal to Send Updated Text to View**
                 # table_cell.textChanged.connect(lambda row_data, row=row_index: self.edited_row_data(row, row_data))
-                table_cell.editingFinished.connect(lambda row=row_index, field=table_cell, dropdown=dropdown_cell: self.enable_dropdown(row, field, dropdown))
-                dropdown_cell.currentIndexChanged.connect(lambda row=row_index, field=table_cell, dropdown=dropdown_cell: self.edited_row_data(row, field, dropdown))
+                table_cell.editingFinished.connect(partial(self.enable_dropdown, row_index, table_cell, dropdown_cell))
+                dropdown_cell.currentIndexChanged.connect(partial(self.edited_row_data, row_index, table_cell, dropdown_cell))
 
                 scroll_layout.addWidget(dropdown_cell, row_index, 10, 1, 2)
 
@@ -249,7 +245,7 @@ class CharactersThreadsTablesUI(QWidget):
         if field.text().strip():  # Ensure field is not empty
             dropdown.setEnabled(True)
 
-    def edited_row_data(self, row, field, dropdown):
+    def edited_row_data(self, row, field, dropdown, *args):
         """Stores the edited row data and removes cursor focus."""
         if dropdown.currentText():
             self.edited_rows_data_dict[row] = {

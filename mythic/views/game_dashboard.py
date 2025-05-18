@@ -1,15 +1,15 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLayout
-from ui.new_story_ui import NewStoryUI  # Assuming MainMenuUI is adapted for PySide6
+from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapted for PySide6
 
 
-class NewStoryView(QWidget):
+class GameDashboardView(QWidget):
     """Handles main menu logic & navigation."""
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
         # Attach UI with navigation logic
-        self.ui = NewStoryUI(self, controller)
+        self.ui = GameDashboardUI(self, controller)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
     def update_dimensions(self, width, height):
@@ -26,7 +26,7 @@ class NewStoryView(QWidget):
 class CharactersList(QWidget):
     """Handles main menu logic & navigation."""
     def __init__(self, parent, controller):
-        from ui.new_story_ui import CharactersThreadsTablesUI
+        from ui.game_dashboard_ui import CharactersThreadsTablesUI
 
         super().__init__(parent)
         self.controller = controller
