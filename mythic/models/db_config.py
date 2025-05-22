@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -18,21 +18,24 @@ session = SessionLocal()
 
 
 def initialize_db():
-    """Creates the database and populates the table if missing."""
-    from .master_tables import StoriesIndex
+    """Creates the database and populates specific tables if missing."""
+    from .master_tables import StoriesIndex, Characters, Places, Items, Threads
     inspector = inspect(engine)
     
-    if not inspector.has_table("stories_index"):  # Check if table exists
-        StoriesIndex.__table__.create(engine)  # Create table
-        
-        # ✅ Insert five rows with predefined indexes
+    models = [StoriesIndex, Characters, Places, Items, Threads]  # List all models
 
-        try:
-            for i in range(1, 6):  # Ensure index 1 to 5 is created
-                story = StoriesIndex(index=i, name=None, description=None)
-                session.add(story)
-            session.commit()
-        except IntegrityError:
-            session.rollback()
-        finally:
-            session.close()
+    try:
+        for model in models:
+            if not inspector.has_table(model.__tablename__):  # Check if table exists
+                model.__table__.create(engine)  # Create table
+
+                # If it's StoriesIndex, populate indexes 1-5
+                if model is StoriesIndex:
+                    for i in range(1, 6):  # Ensure index 1 to 5 is created
+                        story = StoriesIndex(index=i, name=None, description=None)
+                        session.add(story)
+                    session.commit()
+    except IntegrityError:
+        session.rollback()
+    finally:
+        session.close()
