@@ -1,112 +1,131 @@
-from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QGridLayout, QScrollArea, QVBoxLayout
-from PySide6.QtGui import QFont, QIcon
-from PySide6.QtCore import Qt
-from views.new_story import NewStoryView  # Import to navigate back
-
-class ScrollCheckUI(QWidget):
-    """UI Layout with both horizontal and vertical scrolling."""
+class NewStoryUI(QWidget):
+    """UI Layout for New Story screen."""
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
-        # Apply plain white background
-        self.setStyleSheet("background-color: white;")
+        # Configure grid layout dynamically
+        self.layout = QGridLayout(self)
+        self.layout.setSpacing(10)
+        self.bg_image_path = "assets/new_story.jpg"
 
-        # **Main Layout (Non-Scrollable)**
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)  # Keep margins fixed
+        # Stretch rows and columns for responsiveness
+        for i in range(5):
+            self.layout.setColumnStretch(i, 1)
+            self.layout.setRowStretch(i, 1)
 
-        # **Create Transparent Container for Close Button Row**
-        close_row_container = QWidget(self)
-        close_row_container.setStyleSheet("background-color: transparent;")
-
-        # **Add Close Button Inside Transparent Container**
-        close_button = QPushButton(close_row_container)
-        close_button.setIcon(QIcon("assets/icons/close_icon.png"))
-        close_button.setFont(QFont("Arial", 14, QFont.Bold))
-        close_button.setStyleSheet("""
-            padding: 10px;
+        # **Title Label (Centered)**
+        self.title_label = QLabel("New Story", self)
+        self.title_label.setFont(QFont("Arial", 28))
+        self.title_label.setStyleSheet("""
             background-color: transparent;
+            padding: 10px;
             color: maroon;
-            border: 2px solid black;
+            font-weight: bold;
+            font-style: italic;
         """)
-        close_button.clicked.connect(lambda: self.controller.show_view(NewStoryView))
+        self.layout.addWidget(self.title_label, 1, 1, 1, 1)
 
-        # **Add Close Button to Transparent Container**
-        close_row_layout = QVBoxLayout(close_row_container)
-        close_row_layout.addWidget(close_button, alignment=Qt.AlignCenter)
+        # **Text Input Section**
+        self.text_frame = QFrame(self)
+        self.text_layout = QVBoxLayout(self.text_frame)
+        self.text_layout.setContentsMargins(100, 10, 100, 70)
 
-        # **Add Transparent Row to Main Layout**
-        self.layout.addWidget(close_row_container)
+        # Create Title Input
+        self.title_label_widget = QLabel("Title / Label", self.text_frame)
+        self.title_label_widget.setFont(QFont("Arial", 17))
+        self.title_label_widget.setStyleSheet("color: black; font-weight: bold;")
 
-        # **Create a Container for the Table (Adds Left & Right Margins)**
-        table_container = QWidget(self)
-        table_container_layout = QVBoxLayout(table_container)
-        table_container_layout.setContentsMargins(50, 0, 50, 0)  # Adds space on left & right
+        self.title_input = QLineEdit(self.text_frame)
+        self.title_input.setFont(QFont("Arial", 15))
+        self.title_input.setPlaceholderText("Enter title...")
+        self.title_input.setStyleSheet("padding: 10px; font-style: italic;")
 
-        # **Create Scroll Area**
-        scroll_area = QScrollArea(table_container)
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        # **Error Label (Initially Hidden)**
+        self.title_error_label = QLabel("Title is required!", self.text_frame)
+        self.title_error_label.setFont(QFont("Arial", 12))
+        self.title_error_label.setStyleSheet("color: red;")
+        self.title_error_label.setVisible(False)  # Hidden initially
 
-        # **Create Scrollable Content Widget**
-        scroll_widget = QWidget()
-        scroll_layout = QGridLayout(scroll_widget)
-        scroll_layout.setSpacing(0)
+        # **Description Input (Always Active)**
+        self.description_label_widget = QLabel("Description", self.text_frame)
+        self.description_label_widget.setFont(QFont("Arial", 17))
+        self.description_label_widget.setStyleSheet("color: black; font-weight: bold;")
 
-        # Define section labels (spanning 5 rows each)
-        section_labels = ["1 - 2", "3 - 4", "5 - 6", "7 - 8", "9 - 10"]
+        self.description_input = QTextEdit(self.text_frame)
+        self.description_input.setFont(QFont("Arial", 15))
+        self.description_input.setPlaceholderText("Enter description...")
+        self.description_input.setStyleSheet("padding: 10px; font-style: italic;")
 
-        # Create table structure
-        row_index = 0
-        for section_label in section_labels:
-            # **Section Label (Spans 5 Rows, 2 Columns)**
-            section_label_widget = QLabel(section_label, scroll_widget)
-            section_label_widget.setFont(QFont("Arial", 14, QFont.Bold))
-            section_label_widget.setAlignment(Qt.AlignCenter)
-            section_label_widget.setStyleSheet("""
-                border: 2px solid black;
-                padding: 5px;
-                background-color: white;
-                color: black;
-                font-weight: bold;
-            """)
-            scroll_layout.addWidget(section_label_widget, row_index, 0, 5, 2)
+        # Add widgets to layout
+        self.text_layout.addWidget(self.title_label_widget)
+        self.text_layout.addWidget(self.title_input)
+        self.text_layout.addWidget(self.title_error_label)  # Error label beneath title
+        self.text_layout.addSpacing(10)
+        self.text_layout.addWidget(self.description_label_widget)
+        self.text_layout.addWidget(self.description_input)
 
-            # **Row Labels & Table Cells**
-            for i in range(5):
-                border_bottom = "2px solid black" if i == 4 else "1px solid black"
+        self.layout.addWidget(self.text_frame, 1, 2, 3, 3)
 
-                row_label = QLabel(section_labels[i], scroll_widget)
-                row_label.setFont(QFont("Arial", 12, QFont.Bold))
-                row_label.setAlignment(Qt.AlignCenter)
-                row_label.setStyleSheet(f"""
-                    border: 2px solid black;
-                    padding: 5px;
-                    background-color: white;
-                    color: black;
-                    font-weight: bold;
-                """)
-                scroll_layout.addWidget(row_label, row_index, 2, 1, 2)
+        # **Button Section**
+        self.button_frame = QFrame(self)
+        self.button_layout = QVBoxLayout(self.button_frame)
+        self.button_layout.setContentsMargins(0, 100, 0, 20)
+        self.layout.addWidget(self.button_frame, 3, 1, 1, 2, alignment=Qt.AlignBottom | Qt.AlignLeft)
 
-                table_cell = QLabel("", scroll_widget)
-                table_cell.setStyleSheet(f"""
-                    border: 2px solid black;
-                    padding: 10px;
-                    background-color: white;
-                """)
-                scroll_layout.addWidget(table_cell, row_index, 4, 1, 8)
+        self.create_buttons()
 
-                row_index += 1
+    def create_buttons(self):
+        """Creates buttons dynamically with optimized layout."""
+        from views.main_menu import MainMenu
+        from views.game_dashboard import GameDashboardUI
 
-        # **Set Scrollable Widget Inside Scroll Area**
-        scroll_area.setWidget(scroll_widget)
+        # Create buttons
+        create_btn = QPushButton("Create", self.button_frame)
+        create_btn.setFont(QFont("Arial", 20))
+        create_btn.setMinimumSize(250, 60)
+        create_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        create_btn.clicked.connect(self.validate_and_submit)
 
-        # **Add Scroll Area to Table Container**
-        table_container_layout.addWidget(scroll_area)
+        back_btn = QPushButton("Back", self.button_frame)
+        back_btn.setFont(QFont("Arial", 20))
+        back_btn.setMinimumSize(250, 60)
+        back_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        back_btn.clicked.connect(lambda checked: self.controller.show_view(MainMenu))
 
-        # **Add Table Container to Main Layout**
-        self.layout.addWidget(table_container)
+        # Add buttons to layout
+        self.button_layout.addWidget(create_btn)
+        self.button_layout.addSpacing(10)  # Add space between buttons
+        self.button_layout.addWidget(back_btn)
 
-        self.setLayout(self.layout)  # Ensure full layout usage
+    def validate_and_submit(self):
+        """Validates title and submits data only if valid."""
+        title_text = self.title_input.text().strip()
+        description_text = self.description_input.toPlainText().strip()
+
+        if not title_text:  # If title is empty, show error
+            self.title_error_label.setVisible(True)
+            return  # Stop execution without submitting
+
+        # Hide error if title is valid
+        self.title_error_label.setVisible(False)
+
+        # Send data
+        data = {
+            "title": title_text,
+            "description": description_text if description_text else None
+        }
+        self.controller.current_view.receive_title_description(data)
+        self.controller.show_view(GameDashboardUI)  # Proceed to next view
+
+    def update_dimensions(self, width, height):
+        """Updates font sizes dynamically when the main window resizes."""
+        title_font_size = max(20, width // 50)
+        self.title_label.setFont(QFont("Arial", title_font_size))
+        
+        button_font_size = max(8, width // 80)
+        button_size = (width // 6, height // 12)
+
+        for btn in self.button_frame.findChildren(QPushButton):
+            btn.setFont(QFont("Arial", button_font_size))
+            btn.setMinimumSize(*button_size)

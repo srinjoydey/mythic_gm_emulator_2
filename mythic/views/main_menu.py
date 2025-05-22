@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from ui.main_menu_ui import MainMenuUI
+from models.db_config import session
 
 
 class MainMenu(QWidget):
@@ -33,9 +34,27 @@ class NewStoryView(QWidget):
         self.ui = NewStoryUI(self, controller)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
-    def receive_edited_rows_data(self, data):
-        """Receives edited data from UI when closing."""
-        print("Final Edited Data:", data)        
+    def receive_title_description(self, data):
+        """Receives edited data, validates uniqueness, and updates UI accordingly."""
+        from models.master_tables import StoriesIndex
+        print("Title and Description:", data)
+
+        # Check if the title already exists
+        existing_story = session.query(StoriesIndex).filter_by(name=data['title']).first()
+
+        if existing_story:  # If title is already present, send error message to UI
+            self.ui.display_error_message("Title already exists. Choose a diffferent one.")
+            return  # Stop execution
+
+        # Get the first empty index record
+        first_empty_index = session.query(StoriesIndex).filter(StoriesIndex.name.is_(None)).first()
+
+        if first_empty_index:  # Ensure we found an empty slot
+            first_empty_index.name = data['title']
+            first_empty_index.description = data['description']
+            session.commit()
+            # Send the index value back to the UI so it can be used in navigation
+            self.ui.navigate_to_game_dashboard(first_empty_index.index)
 
     def update_dimensions(self, width, height):
         """Propagate resizing logic to UI component."""
@@ -47,28 +66,33 @@ class NewStoryView(QWidget):
     
 
 class ExistingStoryView(QWidget):
-    """Handles main menu layout & navigation."""
+    """Handles existing story loading or deletion logic & navigation."""
     def __init__(self, parent, controller):
         from ui.main_menu_ui import ExistingStoryUI
 
         super().__init__(parent)
         self.controller = controller
 
-        # Define background image path (handled by MainAppWindow)
-        self.bg_image_path = "assets/page1_bg.jpg"
-
         # Attach UI with navigation logic
         self.ui = ExistingStoryUI(self, controller)
+        self.setLayout(self.ui.layout)  # Use UI's layout directly
 
-        # Layout to ensure proper expansion
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.ui)
-        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for full expansion
+    def receive_title_description(self, data):
+        """Receives edited data from UI when closing."""
+        from models.master_tables import StoriesIndex
+        print("Title and Description:", data)  
+        stories = session.query(StoriesIndex).all()
+        for story in stories:
+            print(f"Index: {story.index}, Name: {story.name}, Description: {story.description}")
 
     def update_dimensions(self, width, height):
         """Propagate resizing logic to UI component."""
         self.ui.update_dimensions(width, height)
 
+    def get_background_image(self):
+        """Returns the background image path for this view."""
+        return self.ui.bg_image_path  # UI manages background image selection
+    
 
 class OraclesTablesView(QWidget):
     """Handles main menu layout & navigation."""

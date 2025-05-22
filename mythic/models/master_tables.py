@@ -1,17 +1,16 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime
 from datetime import datetime, timezone
-from db_config import Base  # Import shared Base
+from zoneinfo import ZoneInfo
+from .db_config import Base  # Import shared Base
 
 
-def create_dynamic_model(model_class, table_name):
-    """ Dynamically assigns a table name to an ORM model """
-    class DynamicModel(Base, model_class):  # Base must come first for proper ORM mapping
-        __tablename__ = table_name
-    return DynamicModel
+IST = ZoneInfo("Asia/Kolkata")  # Define IST timezone
 
-class StoriesIndex:
+class StoriesIndex(Base):
+    __tablename__ = "stories_index"
+
     index = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    description = Column(Text, nullable=False)
-    created_date = Column(DateTime, default=datetime.now(timezone.utc))
-    modified_date = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    name = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    created_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST))
+    modified_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST), onupdate=lambda: datetime.now().replace(tzinfo=IST))

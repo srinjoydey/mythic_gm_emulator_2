@@ -4,9 +4,10 @@ from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapt
 
 class GameDashboardView(QWidget):
     """Handles main menu logic & navigation."""
-    def __init__(self, parent, controller):
+    def __init__(self, parent, controller, story_index=None):
         super().__init__(parent)
         self.controller = controller
+        self.story_index = story_index
 
         # Attach UI with navigation logic
         self.ui = GameDashboardUI(self, controller)

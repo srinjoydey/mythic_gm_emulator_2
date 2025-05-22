@@ -108,11 +108,38 @@ class NewStoryUI(QWidget):
         self.text_layout = QVBoxLayout(self.text_frame)
         self.text_layout.setContentsMargins(100, 10, 100, 70)
 
-        self.title_input = self.create_input_field("Title / Label", QLineEdit)
-        self.description_input = self.create_input_field("Description", QTextEdit)
+        # Create Title Input
+        self.title_label_widget = QLabel("Title / Label", self.text_frame)
+        self.title_label_widget.setFont(QFont("Arial", 17))
+        self.title_label_widget.setStyleSheet("color: black; font-weight: bold;")
 
+        self.title_input = QLineEdit(self.text_frame)
+        self.title_input.setFont(QFont("Arial", 15))
+        self.title_input.setPlaceholderText("Enter title...")
+        self.title_input.setStyleSheet("padding: 10px; font-style: italic;")
+
+        # **Error Label (Initially Hidden)**
+        self.title_error_label = QLabel("Title is required!", self.text_frame)
+        self.title_error_label.setFont(QFont("Arial", 14))
+        self.title_error_label.setStyleSheet("color: maroon; font-weight: bold;")
+        self.title_error_label.setVisible(False)  # Hidden initially
+
+        # **Description Input (Always Active)**
+        self.description_label_widget = QLabel("Description", self.text_frame)
+        self.description_label_widget.setFont(QFont("Arial", 17))
+        self.description_label_widget.setStyleSheet("color: black; font-weight: bold;")
+
+        self.description_input = QTextEdit(self.text_frame)
+        self.description_input.setFont(QFont("Arial", 15))
+        self.description_input.setPlaceholderText("Enter description...")
+        self.description_input.setStyleSheet("padding: 10px; font-style: italic;")
+
+        # Add widgets to layout
+        self.text_layout.addWidget(self.title_label_widget)
         self.text_layout.addWidget(self.title_input)
-        self.text_layout.addSpacing(5)  
+        self.text_layout.addWidget(self.title_error_label)  # Error label beneath title        
+        self.text_layout.addSpacing(50)  
+        self.text_layout.addWidget(self.description_label_widget)
         self.text_layout.addWidget(self.description_input)
 
         self.layout.addWidget(self.text_frame, 1, 2, 3, 3)
@@ -125,41 +152,61 @@ class NewStoryUI(QWidget):
 
         self.create_buttons()
 
-    def create_input_field(self, label_text, widget_class):
-        """Creates a labeled input field dynamically."""
-        label = QLabel(label_text, self.text_frame)
-        label.setFont(QFont("Arial", 17))
-        label.setStyleSheet("color: black; font-weight: bold;")
-
-        input_widget = widget_class(self.text_frame)
-        input_widget.setFont(QFont("Arial", 15))
-        input_widget.setPlaceholderText(f"Enter {label_text.lower()}...")  
-        input_widget.setStyleSheet("padding: 10px; font-style: italic;")
-
-        layout = QVBoxLayout()
-        layout.addWidget(label)
-        layout.addWidget(input_widget)
-
-        container = QFrame(self.text_frame)
-        container.setLayout(layout)
-
-        return container
-
     def create_buttons(self):
         """Creates buttons dynamically with optimized layout."""
         from views.main_menu import MainMenu
+
+        # Create buttons
+        create_btn = QPushButton("Create", self.button_frame)
+        create_btn.setFont(QFont("Arial", 20))
+        create_btn.setMinimumSize(250, 60)
+        create_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        create_btn.clicked.connect(self.validate_and_submit)
+
+        back_btn = QPushButton("Back", self.button_frame)
+        back_btn.setFont(QFont("Arial", 20))
+        back_btn.setMinimumSize(250, 60)
+        back_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        back_btn.clicked.connect(lambda checked: self.controller.show_view(MainMenu))
+
+        # Add buttons to layout
+        self.button_layout.addWidget(create_btn)
+        self.button_layout.addSpacing(10)  # Add space between buttons
+        self.button_layout.addWidget(back_btn)
+
+    def validate_and_submit(self):
+        """Validates title and submits data only if valid."""
         from views.game_dashboard import GameDashboardUI
 
-        buttons_data = [("Create", GameDashboardUI), ("Back", MainMenu)]
+        title_text = self.title_input.text().strip()
+        description_text = self.description_input.toPlainText().strip()
 
-        for text, view in buttons_data:
-            btn = QPushButton(text, self.button_frame)
-            btn.setFont(QFont("Arial", 20))
-            btn.setMinimumSize(250, 60)
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            btn.clicked.connect(lambda checked, v=view: self.controller.show_view(v))
-            self.button_layout.setSpacing(10)
-            self.button_layout.addWidget(btn)
+        if not title_text:  # If title is empty, show error
+            self.title_error_label.setVisible(True)
+            return  # Stop execution without submitting
+
+        # Hide error if title is valid
+        self.title_error_label.setVisible(False)
+
+        # Send data
+        data = {
+            "title": title_text,
+            "description": description_text if description_text else None
+        }
+        self.controller.current_view.receive_title_description(data)
+        self.controller.show_view(GameDashboardUI)  # Proceed to next view
+
+    def display_error_message(self, message):
+        """Displays an error message under the title input."""
+        self.title_error_label.setText(message)
+        self.title_error_label.setVisible(True)  # Show the error message
+
+    def navigate_to_game_dashboard(self, index_value):
+        """Navigates to GameDashboardUI, passing the index value."""
+        from views.game_dashboard import GameDashboardView
+
+        # Pass index value to GameDashboardUI or GameDashboardView
+        self.controller.show_view(GameDashboardView, story_index=index_value)
 
     def update_dimensions(self, width, height):
         """Updates font sizes dynamically when the main window resizes."""
