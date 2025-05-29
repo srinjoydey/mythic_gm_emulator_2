@@ -6,9 +6,10 @@ from PySide6.QtCore import Qt, QSize
 
 class GameDashboardUI(QWidget):
     """UI Layout for Main Menu with buttons and styling."""
-    def __init__(self, parent, controller):
+    def __init__(self, parent, controller, story_index):
         super().__init__(parent)
         self.controller = controller
+        self.story_index = story_index
 
         # Define background image path (now managed here)
         self.bg_image_path = "assets/game_dashboard.png"
@@ -59,7 +60,7 @@ class GameDashboardUI(QWidget):
             btn.setFont(QFont("Arial", button_font_size))
             btn.setMinimumSize(button_width, button_height)
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            btn.clicked.connect(lambda checked, v=view: self.controller.show_view(v))
+            btn.clicked.connect(lambda checked, v=view: self.controller.show_view(v, story_index=self.story_index))
             self.button_layout.addWidget(btn)
 
     def update_dimensions(self, width, height):
@@ -75,11 +76,13 @@ class GameDashboardUI(QWidget):
 
 class CharactersThreadsTablesUI(QWidget):
     """UI Layout with both horizontal and vertical scrolling."""
-    def __init__(self, parent, controller, table_label):
+    def __init__(self, parent, controller, table_label, story_index):
         from views.game_dashboard import GameDashboardView
 
         super().__init__(parent)
         self.controller = controller
+        self.table_label = table_label
+        self.story_index = story_index
         self.edited_rows_data_dict = {}
 
         # Apply plain white background
@@ -94,7 +97,7 @@ class CharactersThreadsTablesUI(QWidget):
         close_row_container.setStyleSheet("background-color: transparent;")
 
         # Title Label (Centered)
-        title_label = QLabel(table_label, close_row_container)
+        title_label = QLabel(self.table_label.title(), close_row_container)
         title_label.setFont(QFont("Arial", 28))
         # Apply transparent background
         title_label.setStyleSheet("""
@@ -117,7 +120,7 @@ class CharactersThreadsTablesUI(QWidget):
         """)
         close_button.clicked.connect(lambda: (
             self.controller.current_view.receive_edited_rows_data(self.send_edited_rows_data_dict()),
-            self.controller.show_view(GameDashboardView)
+            self.controller.show_view(GameDashboardView, story_index=self.story_index)
         ))
 
         # **Add Close Button to Transparent Container**
@@ -202,29 +205,36 @@ class CharactersThreadsTablesUI(QWidget):
 
                 scroll_layout.addWidget(table_cell, row_index, 4, 1, 6)
 
-                dropdown_cell = QComboBox(scroll_widget)
-                dropdown_cell.addItems([None, "character", "place", "item"])
-                # dropdown_cell.setAlignment(Qt.AlignCenter)                
-                dropdown_cell.setStyleSheet(f"""
-                    border-top: 1px solid black;
-                    border-bottom: {border_bottom};
-                    border-right: 1px solid black;
-                    border-left: 1px solid black;
-                    padding: 10px;
-                    color: black;
-                    font-size: 16px;
-                    background-color: white;
-                    text-align: center;
-                """)                
-                dropdown_cell.setEditable(False)
-                dropdown_cell.setEnabled(False)
+                # Add dropdowns column if Characters Table
+                if self.table_label == "characters":
 
-                # **Signal to Send Updated Text to View**
-                # table_cell.textChanged.connect(lambda row_data, row=row_index: self.edited_row_data(row, row_data))
-                table_cell.editingFinished.connect(partial(self.enable_dropdown, row_index, table_cell, dropdown_cell))
-                dropdown_cell.currentIndexChanged.connect(partial(self.edited_row_data, row_index, table_cell, dropdown_cell))
+                    dropdown_cell = QComboBox(scroll_widget)
+                    dropdown_cell.addItems([None, "character", "place", "item"])
+                    # dropdown_cell.setAlignment(Qt.AlignCenter)                
+                    dropdown_cell.setStyleSheet(f"""
+                        border-top: 1px solid black;
+                        border-bottom: {border_bottom};
+                        border-right: 1px solid black;
+                        border-left: 1px solid black;
+                        padding: 10px;
+                        color: black;
+                        font-size: 16px;
+                        background-color: white;
+                        text-align: center;
+                    """)                
+                    dropdown_cell.setEditable(False)
+                    dropdown_cell.setEnabled(False)
 
-                scroll_layout.addWidget(dropdown_cell, row_index, 10, 1, 2)
+                    # **Signal to Send Updated Text to View**
+                    # table_cell.textChanged.connect(lambda row_data, row=row_index: self.edited_row_data(row, row_data))
+                    table_cell.textEdited.connect(partial(self.get_suggestions_if_match, row_index, ))
+                    table_cell.editingFinished.connect(partial(self.enable_dropdown, table_cell, dropdown_cell))
+                    dropdown_cell.currentIndexChanged.connect(partial(self.edited_row_data, row_index, name=table_cell, type=dropdown_cell))
+                    scroll_layout.addWidget(dropdown_cell, row_index, 10, 1, 2)
+
+                elif self.table_label == "threads":
+
+                    table_cell.editingFinished.connect(partial(self.edited_row_data, row_index, thread=table_cell))
 
                 row_index += 1
 
@@ -240,19 +250,26 @@ class CharactersThreadsTablesUI(QWidget):
         self.setLayout(self.layout)  # Ensure full layout usage
 
 
-    def enable_dropdown(self, row, field, dropdown):
+    def enable_dropdown(self, field, dropdown):
         """Enable dropdown only after text is entered in QLineEdit."""
         if field.text().strip():  # Ensure field is not empty
             dropdown.setEnabled(True)
 
-    def edited_row_data(self, row, field, dropdown, *args):
+    def edited_row_data(self, row, *args, **kwargs):
         """Stores the edited row data and removes cursor focus."""
-        if dropdown.currentText():
+        if self.table_label == "characters":
+            if kwargs.get("type").currentText():
+                self.edited_rows_data_dict[row] = {
+                    "name": kwargs.get("name").text(),  # Store the edited text
+                    "type": kwargs.get("type").currentText()  # Store selected dropdown value
+                }
+                kwargs.get["name"].clearFocus()  # Removes focus so the cursor disappears
+
+        elif self.table_label == "threads":
             self.edited_rows_data_dict[row] = {
-                "data": field.text(),  # Store the edited text
-                "type": dropdown.currentText()  # Store selected dropdown value
+                "thread": kwargs.get("thread").text(),  # Store the edited text
             }
-            field.clearFocus()  # Removes focus so the cursor disappears
+            kwargs.get("thread").clearFocus()  # Removes focus so the cursor disappears
 
     def send_edited_rows_data_dict(self):
         return self.edited_rows_data_dict

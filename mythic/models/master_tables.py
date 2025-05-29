@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime
-from datetime import datetime, timezone
+from datetime import datetime
 from zoneinfo import ZoneInfo
 from .db_config import Base  # Import shared Base
 

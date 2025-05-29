@@ -176,8 +176,6 @@ class NewStoryUI(QWidget):
 
     def validate_and_submit(self):
         """Validates title and submits data only if valid."""
-        from views.game_dashboard import GameDashboardUI
-
         title_text = self.title_input.text().strip()
         description_text = self.description_input.toPlainText().strip()
 
@@ -191,10 +189,9 @@ class NewStoryUI(QWidget):
         # Send data
         data = {
             "title": title_text,
-            "description": description_text if description_text else None
+            "description": description_text
         }
-        self.controller.current_view.receive_title_description(data)
-        self.controller.show_view(GameDashboardUI)  # Proceed to next view
+        self.controller.current_view.validate_new_story_data_setup_tables(data)
 
     def display_error_message(self, message):
         """Displays an error message under the title input."""
@@ -222,9 +219,11 @@ class NewStoryUI(QWidget):
 
 class ExistingStoryUI(QWidget):
     """UI Layout for Main Menu with buttons and styling."""
-    def __init__(self, parent, controller):
+    def __init__(self, parent, controller, existing_stories):
         super().__init__(parent)
         self.controller = controller
+        self.existing_sories_data = existing_stories
+        self.button_mapping = {}
 
         # Define background image path (now managed here)
         self.bg_image_path = "assets/main_menu.jpg"
@@ -260,26 +259,25 @@ class ExistingStoryUI(QWidget):
 
     def create_buttons(self):
         """Creates buttons dynamically with optimized layout."""
-        from views.main_menu import NewStoryView, ExistingStoryView, OraclesTablesView, GalleryView, ArtifactsView
-
+        from views.game_dashboard import GameDashboardView
         # Define menu buttons dynamically
-        self.buttons = [
-            ("New Story", NewStoryView),
-            ("Existing Story", ExistingStoryView),
-            ("Oracles / Tables", OraclesTablesView),
-            ("Gallery", GalleryView),
-            ("Artifacts", ArtifactsView),
-        ]        
+        self.buttons = []
+        for index_data, story_data in self.existing_sories_data.items():
+            self.buttons.append((index_data, story_data['story_name']))
         button_width, button_height = 250, 60
         button_font_size = 20
 
-        for text, view in self.buttons:
-            btn = QPushButton(text, self.button_frame)
+        for index_value, story_title in self.buttons:
+            btn = QPushButton(story_title, self.button_frame)
             btn.setFont(QFont("Arial", button_font_size))
             btn.setMinimumSize(button_width, button_height)
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            btn.clicked.connect(lambda checked, v=view: self.controller.show_view(v))
             self.button_layout.addWidget(btn)
+
+            self.button_mapping[btn] = index_value
+        
+        for btn, index_value in self.button_mapping.items():
+            btn.clicked.connect(lambda checked, v=GameDashboardView, idx=index_value: self.controller.show_view(v, story_index=idx))            
 
     def update_dimensions(self, width, height):
         """Updates font sizes dynamically when the main window resizes."""
