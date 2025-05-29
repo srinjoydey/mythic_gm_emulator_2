@@ -109,14 +109,6 @@ class ExistingStoryView(QWidget):
         self.ui = ExistingStoryUI(self, controller, existing_stories=self.existing_stories_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
-    # def receive_title_description(self, data):
-    #     """Receives edited data from UI when closing."""
-    #     from models.master_tables import StoriesIndex
-    #     print("Title and Description:", data)  
-    #     stories = session.query(StoriesIndex).all()
-    #     for story in stories:
-    #         print(f"Index: {story.index}, Name: {story.name}, Description: {story.description}")
-
     def update_dimensions(self, width, height):
         """Propagate resizing logic to UI component."""
         self.ui.update_dimensions(width, height)

@@ -12,7 +12,20 @@ class GameDashboardView(QWidget):
 
         # Attach UI with navigation logic
         self.ui = GameDashboardUI(self, controller, self.story_index)
+        self.ui.characters_button_clicked.connect(lambda: self.navigate_to_characters_list(self.story_index))
+        self.ui.threads_button_clicked.connect(lambda: self.navigate_to_threads_list(self.story_index))
+        self.ui.main_menu_button_clicked.connect(lambda: self.navigate_to_main_menu())
         self.setLayout(self.ui.layout)  # Use UI's layout directly
+
+    def navigate_to_characters_list(self, story_index):
+        self.controller.show_view(CharactersList, story_index=story_index)
+
+    def navigate_to_threads_list(self, story_index):       
+        self.controller.show_view(ThreadsList, story_index=story_index)
+
+    def navigate_to_main_menu(self):
+        from views.main_menu import MainMenu
+        self.controller.show_view(MainMenu)        
 
     def update_dimensions(self, width, height):
         """Propagate resizing logic to UI component."""
@@ -38,18 +51,22 @@ class CharactersList(QWidget):
 
         self.characters_list_model = create_dynamic_model(CharactersListModel, self.table_name)
 
-        records = session.query(self.characters_list_model).all()
-        records = {}
-        for record in records:
-            records[record.row] = {
-                "name": record.name,
-                "type": record.type
+        existing_data_queryset = session.query(self.characters_list_model).all()
+        existing_data = {}
+        for data in existing_data_queryset:
+            existing_data[data.row] = {
+                "name": data.name,
+                "type": data.type
             }
 
         # Attach UI with navigation logic
-        self.ui = CharactersThreadsTablesUI(self, controller, "characters", self.story_index)
+        self.ui = CharactersThreadsTablesUI(self, controller, "characters", self.story_index, existing_data)
+        self.ui.search_for_suggestions.connect(self.send_matching_suggestions_for_row)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
         
+    def send_matching_suggestions_for_row(self, current_typed_data_dict):
+        print(f"Current typed data in row {current_typed_data_dict['row']} is {current_typed_data_dict['data']}")
+
     def receive_edited_rows_data(self, data):
         """Receives edited data from UI when closing."""
         for row, name_type_data in data.items():
@@ -80,15 +97,15 @@ class ThreadsList(QWidget):
 
         self.threads_list_model = create_dynamic_model(ThreadsListModel, self.table_name)
 
-        records = session.query(self.threads_list_model).all()
-        records = {}
-        for record in records:
-            records[record.row] = {
-                "thread": record.thread
+        existing_data_queryset = session.query(self.threads_list_model).all()
+        existing_data = {}
+        for data in existing_data_queryset:
+            existing_data[data.row] = {
+                "thread": data.thread
             }
 
         # Attach UI with navigation logic
-        self.ui = CharactersThreadsTablesUI(self, controller, "threads", self.story_index)
+        self.ui = CharactersThreadsTablesUI(self, controller, "threads", self.story_index, existing_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
         
     def receive_edited_rows_data(self, data):
