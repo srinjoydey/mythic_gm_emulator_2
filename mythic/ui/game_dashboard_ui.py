@@ -8,6 +8,7 @@ class GameDashboardUI(QWidget):
     """UI Layout for Main Menu with buttons and styling."""
     characters_button_clicked = Signal()
     threads_button_clicked = Signal()
+    gallery_modal_button_clicked = Signal()
     main_menu_button_clicked = Signal()
 
     def __init__(self, parent, controller, story_index):
@@ -52,6 +53,7 @@ class GameDashboardUI(QWidget):
         self.signals = [
             ("Characters", self.characters_button_clicked),
             ("Threads", self.threads_button_clicked),
+            ("Gallery Modal", self.gallery_modal_button_clicked),
             ("Main Menu", self.main_menu_button_clicked),            
         ]
         button_width, button_height = 250, 60
@@ -315,7 +317,7 @@ class CharactersThreadsTablesUI(QWidget):
                     "type": kwargs.get("type").currentText()
                 }
                 # Removes focus so the cursor disappears
-                kwargs.get["name"].clearFocus()
+                kwargs.get("name").clearFocus()
 
         elif self.table_label == "threads":
             self.edited_rows_data_dict[row] = {

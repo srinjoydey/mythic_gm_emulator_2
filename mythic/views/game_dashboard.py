@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLayout
+from PySide6.QtWidgets import QWidget
 from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapted for PySide6
 from models.db_config import session
  
@@ -14,6 +14,7 @@ class GameDashboardView(QWidget):
         self.ui = GameDashboardUI(self, controller, self.story_index)
         self.ui.characters_button_clicked.connect(lambda: self.navigate_to_characters_list(self.story_index))
         self.ui.threads_button_clicked.connect(lambda: self.navigate_to_threads_list(self.story_index))
+        self.ui.gallery_modal_button_clicked.connect(lambda: self.navigate_to_gallery_modal(self.story_index))
         self.ui.main_menu_button_clicked.connect(lambda: self.navigate_to_main_menu())
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
@@ -22,6 +23,10 @@ class GameDashboardView(QWidget):
 
     def navigate_to_threads_list(self, story_index):       
         self.controller.show_view(ThreadsList, story_index=story_index)
+
+    def navigate_to_gallery_modal(self, story_index):
+        from views.gallery import GalleryModalView     
+        self.controller.show_view(GalleryModalView, story_index=story_index)
 
     def navigate_to_main_menu(self):
         from views.main_menu import MainMenu
@@ -68,10 +73,22 @@ class CharactersList(QWidget):
         print(f"Current typed data in row {current_typed_data_dict['row']} is {current_typed_data_dict['data']}")
 
     def receive_edited_rows_data(self, data):
-        """Receives edited data from UI when closing."""
+        from models.master_tables import Characters, Places, Items
+
+        model_map = {"character": Characters, "place": Places, "item": Items}
+
         for row, name_type_data in data.items():
-            session.query(self.characters_list_model).filter(self.characters_list_model.row == row).update({"name": name_type_data["name"], "type": name_type_data["type"]})
-            session.commit()
+            # Add data to respective master tables
+            master_tables_model = model_map.get(name_type_data['type'])
+            if master_tables_model:
+                new_master_data = master_tables_model(name=name_type_data["name"], story_index=self.story_index)
+                session.add(new_master_data)
+            # Update the dynamic characters list table specific to the story
+            session.query(self.characters_list_model).filter(self.characters_list_model.row == row).update({
+                "name": name_type_data["name"],
+                "type": name_type_data["type"]
+            })
+        session.commit()  # Commit once at the end
 
     def update_dimensions(self, width, height):
         """Propagate resizing logic to UI component."""
