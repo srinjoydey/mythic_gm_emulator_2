@@ -1,11 +1,16 @@
 from functools import partial
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Signal, QTimer
 
 
 class GameDashboardUI(QWidget):
     """UI Layout for Main Menu with buttons and styling."""
+    characters_button_clicked = Signal()
+    threads_button_clicked = Signal()
+    gallery_modal_button_clicked = Signal()
+    main_menu_button_clicked = Signal()
+
     def __init__(self, parent, controller, story_index):
         super().__init__(parent)
         self.controller = controller
@@ -38,29 +43,28 @@ class GameDashboardUI(QWidget):
         # Button Frame (Bottom-right placement)
         self.button_frame = QFrame(self)
         self.button_layout = QVBoxLayout(self.button_frame)
-        self.button_layout.setContentsMargins(0, 100, 0, 0) 
+        self.button_layout.setContentsMargins(0, 100, 0, 0)
         self.layout.addWidget(self.button_frame, 1, 2, 2, 2, alignment=Qt.AlignBottom | Qt.AlignRight)
-
-        self.create_buttons()      
+        self.create_buttons()
 
     def create_buttons(self):
         """Creates buttons dynamically with optimized layout."""
-        from views.game_dashboard import CharactersList, ThreadsList
-
         # Define menu buttons dynamically
-        self.buttons = [
-            ("Characters", CharactersList),
-            ("Threads", ThreadsList),
-        ]        
+        self.signals = [
+            ("Characters", self.characters_button_clicked),
+            ("Threads", self.threads_button_clicked),
+            ("Gallery Modal", self.gallery_modal_button_clicked),
+            ("Main Menu", self.main_menu_button_clicked),            
+        ]
         button_width, button_height = 250, 60
         button_font_size = 20
 
-        for text, view in self.buttons:
+        for text, signal in self.signals:
             btn = QPushButton(text, self.button_frame)
             btn.setFont(QFont("Arial", button_font_size))
             btn.setMinimumSize(button_width, button_height)
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            btn.clicked.connect(lambda checked, v=view: self.controller.show_view(v, story_index=self.story_index))
+            btn.clicked.connect(signal.emit)
             self.button_layout.addWidget(btn)
 
     def update_dimensions(self, width, height):
@@ -76,14 +80,19 @@ class GameDashboardUI(QWidget):
 
 class CharactersThreadsTablesUI(QWidget):
     """UI Layout with both horizontal and vertical scrolling."""
-    def __init__(self, parent, controller, table_label, story_index):
+    search_for_suggestions = Signal(dict)
+
+    def __init__(self, parent, controller, table_label, story_index, existing_data):
         from views.game_dashboard import GameDashboardView
 
         super().__init__(parent)
         self.controller = controller
         self.table_label = table_label
         self.story_index = story_index
+        self.existing_data = existing_data
         self.edited_rows_data_dict = {}
+
+        rows_to_be_updated = self.existing_data.keys()
 
         # Apply plain white background
         self.setStyleSheet("background-color: white;")
@@ -119,15 +128,19 @@ class CharactersThreadsTablesUI(QWidget):
             color: maroon;
         """)
         close_button.clicked.connect(lambda: (
-            self.controller.current_view.receive_edited_rows_data(self.send_edited_rows_data_dict()),
-            self.controller.show_view(GameDashboardView, story_index=self.story_index)
+            self.controller.current_view.receive_edited_rows_data(
+                self.send_edited_rows_data_dict()),
+            self.controller.show_view(
+                GameDashboardView, story_index=self.story_index)
         ))
 
         # **Add Close Button to Transparent Container**
         close_row_layout = QHBoxLayout(close_row_container)
-        close_row_layout.addWidget(title_label, alignment=Qt.AlignCenter)  # Change to AlignCenter if needed
+        # Change to AlignCenter if needed
+        close_row_layout.addWidget(title_label, alignment=Qt.AlignCenter)
         close_row_layout.addWidget(close_button, alignment=Qt.AlignRight)
-        close_row_layout.setContentsMargins(420, 30, 90, 5)  # Left, Top, Right, Bottom
+        close_row_layout.setContentsMargins(
+            420, 30, 90, 5)  # Left, Top, Right, Bottom
 
         # **Add Transparent Row to Main Layout**
         self.layout.addWidget(close_row_container)
@@ -135,15 +148,16 @@ class CharactersThreadsTablesUI(QWidget):
         # **Create a Container for the Table (Adds Left & Right Margins)**
         table_container = QWidget(self)
         table_container_layout = QVBoxLayout(table_container)
-        table_container_layout.setContentsMargins(50, 0, 50, 0)  # Adds space on left & right
+        table_container_layout.setContentsMargins(
+            50, 0, 50, 0)  # Adds space on left & right
 
         # **Create Scroll Area**
         scroll_area = QScrollArea(table_container)
         scroll_area.setWidgetResizable(True)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        scroll_area.setStyleSheet("border: none; background-color: transparent;")
-
+        scroll_area.setStyleSheet(
+            "border: none; background-color: transparent;")
 
         # **Create Scrollable Content Widget**
         scroll_widget = QWidget()
@@ -209,8 +223,9 @@ class CharactersThreadsTablesUI(QWidget):
                 if self.table_label == "characters":
 
                     dropdown_cell = QComboBox(scroll_widget)
-                    dropdown_cell.addItems([None, "character", "place", "item"])
-                    # dropdown_cell.setAlignment(Qt.AlignCenter)                
+                    dropdown_cell.addItems(
+                        [None, "character", "place", "item"])
+                    # dropdown_cell.setAlignment(Qt.AlignCenter)
                     dropdown_cell.setStyleSheet(f"""
                         border-top: 1px solid black;
                         border-bottom: {border_bottom};
@@ -221,20 +236,35 @@ class CharactersThreadsTablesUI(QWidget):
                         font-size: 16px;
                         background-color: white;
                         text-align: center;
-                    """)                
+                    """)
                     dropdown_cell.setEditable(False)
                     dropdown_cell.setEnabled(False)
 
+                    if row_index in rows_to_be_updated:
+                        # If row exists in existing data, set initial values
+                        table_cell.setText(self.existing_data[row_index]["name"])
+                        dropdown_cell.setCurrentText(
+                            self.existing_data[row_index]["type"])
+
                     # **Signal to Send Updated Text to View**
-                    # table_cell.textChanged.connect(lambda row_data, row=row_index: self.edited_row_data(row, row_data))
-                    table_cell.textEdited.connect(partial(self.get_suggestions_if_match, row_index, ))
-                    table_cell.editingFinished.connect(partial(self.enable_dropdown, table_cell, dropdown_cell))
-                    dropdown_cell.currentIndexChanged.connect(partial(self.edited_row_data, row_index, name=table_cell, type=dropdown_cell))
+                    # table_cell.textEdited.connect(partial(self.emit_search_for_suggestions, row_index, table_cell))
+                    table_cell.textEdited.connect(partial(self.debounced_emit_search_for_suggestions, row_index, table_cell))
+                    table_cell.editingFinished.connect(
+                        partial(self.enable_dropdown, table_cell, dropdown_cell))
+                    dropdown_cell.currentIndexChanged.connect(
+                        partial(self.edited_row_data, row_index, name=table_cell, type=dropdown_cell))
                     scroll_layout.addWidget(dropdown_cell, row_index, 10, 1, 2)
 
                 elif self.table_label == "threads":
 
-                    table_cell.editingFinished.connect(partial(self.edited_row_data, row_index, thread=table_cell))
+                    if row_index in rows_to_be_updated:
+                        # If row exists in existing data, set initial values
+                        table_cell.setText(self.existing_data[row_index]["thread"])
+
+                    # table_cell.textEdited.connect(partial(self.emit_search_for_suggestions, row_index, table_cell))
+                    table_cell.textEdited.connect(partial(self.debounced_emit_search_for_suggestions, row_index, table_cell))
+                    table_cell.editingFinished.connect(
+                        partial(self.edited_row_data, row_index, thread=table_cell))
 
                 row_index += 1
 
@@ -250,6 +280,28 @@ class CharactersThreadsTablesUI(QWidget):
         self.setLayout(self.layout)  # Ensure full layout usage
 
 
+    def emit_search_for_suggestions(self, row_index, table_cell, text_from_signal):
+        self.search_for_suggestions.emit({
+            "row": row_index,
+            "data": table_cell.text()
+        })
+
+    def debounced_emit_search_for_suggestions(self, row_index, table_cell, text_from_signal):
+        # Debounce timer dictionary on self
+        if not hasattr(self, "debounce_timers"):
+            self.debounce_timers = {}
+        # Stop any existing timer for this cell
+        if table_cell in self.debounce_timers:
+            self.debounce_timers[table_cell].stop()
+        else:
+            self.debounce_timers[table_cell] = QTimer(self)
+            self.debounce_timers[table_cell].setSingleShot(True)
+            self.debounce_timers[table_cell].timeout.connect(
+                partial(self.emit_search_for_suggestions, row_index, table_cell, text_from_signal)
+            )
+        # Start/restart the timer (e.g., 400 ms delay)
+        self.debounce_timers[table_cell].start(400)
+
     def enable_dropdown(self, field, dropdown):
         """Enable dropdown only after text is entered in QLineEdit."""
         if field.text().strip():  # Ensure field is not empty
@@ -261,16 +313,18 @@ class CharactersThreadsTablesUI(QWidget):
             if kwargs.get("type").currentText():
                 self.edited_rows_data_dict[row] = {
                     "name": kwargs.get("name").text(),  # Store the edited text
-                    "type": kwargs.get("type").currentText()  # Store selected dropdown value
+                    # Store selected dropdown value
+                    "type": kwargs.get("type").currentText()
                 }
-                kwargs.get["name"].clearFocus()  # Removes focus so the cursor disappears
+                # Removes focus so the cursor disappears
+                kwargs.get("name").clearFocus()
 
         elif self.table_label == "threads":
             self.edited_rows_data_dict[row] = {
                 "thread": kwargs.get("thread").text(),  # Store the edited text
             }
-            kwargs.get("thread").clearFocus()  # Removes focus so the cursor disappears
+            # Removes focus so the cursor disappears
+            kwargs.get("thread").clearFocus()
 
     def send_edited_rows_data_dict(self):
         return self.edited_rows_data_dict
-

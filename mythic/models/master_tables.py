@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from .db_config import Base  # Import shared Base
@@ -26,6 +26,7 @@ class Characters(Base):
     social_status = Column(String, nullable=True)
     economic_status = Column(String, nullable=True)
     story_index = Column(Integer, nullable=True)
+    acive = Column(Boolean, default=True)
     image_path = Column(String, nullable=True)
     created_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST))
     modified_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST), onupdate=lambda: datetime.now().replace(tzinfo=IST))
@@ -38,6 +39,7 @@ class Places(Base):
     weather = Column(String, nullable=True)
     smell = Column(String, nullable=True)
     story_index = Column(Integer, nullable=True)
+    acive = Column(Boolean, default=True)    
     image_path = Column(String, nullable=True)
     created_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST))
     modified_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST), onupdate=lambda: datetime.now().replace(tzinfo=IST))
@@ -50,6 +52,7 @@ class Items(Base):
     material = Column(String, nullable=True)
     rarity = Column(String, nullable=True)
     story_index = Column(Integer, nullable=True)
+    acive = Column(Boolean, default=True)    
     image_path = Column(String, nullable=True)
     created_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST))
     modified_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST), onupdate=lambda: datetime.now().replace(tzinfo=IST))
@@ -60,6 +63,7 @@ class Threads(Base):
     id = Column(Integer, primary_key=True)
     thread = Column(String, nullable=True)   
     story_index = Column(Integer, nullable=True)
+    acive = Column(Boolean, default=True)    
     image_path = Column(String, nullable=True)
     created_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST))
     modified_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST), onupdate=lambda: datetime.now().replace(tzinfo=IST))
