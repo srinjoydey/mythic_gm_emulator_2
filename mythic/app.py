@@ -3,6 +3,7 @@ from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import Qt, QSize
 from PIL import Image
 from views.main_menu import MainMenu  # Assuming MainMenu is adapted for PySide6
+from models.db_config import initialize_db
 
 
 class MainAppWindow(QMainWindow):
@@ -28,19 +29,21 @@ class MainAppWindow(QMainWindow):
 
         # Set initial background from MainMenu
         self.update_background(self.current_view.get_background_image())
+        initialize_db()
 
-    def show_view(self, view_class):
+    def show_view(self, view_class, **kwargs):
         """Loads the selected view dynamically and updates background."""
-        # Instantiate new view
-        new_view = view_class(self.container, self)
+        if not issubclass(view_class, QWidget):  # Ensure view_class is a QWidget subclass
+            print(f"Error: {view_class} is not a valid QWidget subclass.")
+            return
+
+        new_view = view_class(self.container, self, **kwargs)  # Pass only `self` as the parent
         self.container.addWidget(new_view)
         self.container.setCurrentWidget(new_view)
 
-        # Update background dynamically based on the new view
         if hasattr(new_view, "get_background_image"):
             self.update_background(new_view.get_background_image())
 
-        # Update reference to current view
         self.current_view = new_view
 
     def update_background(self, image_path):
@@ -59,8 +62,8 @@ class MainAppWindow(QMainWindow):
 
             self.bg_label.setPixmap(pixmap)
             self.bg_label.setGeometry(self.rect())  # Adjust to window size
-        except Exception as e:
-            print(f"Error loading background image: {e}")
+        except AttributeError as e:
+            pass
 
     def resizeEvent(self, event):
         """Handles window resizing and updates background dynamically."""
