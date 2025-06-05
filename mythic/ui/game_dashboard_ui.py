@@ -1,5 +1,5 @@
 from functools import partial
-from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox
+from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox, QMessageBox
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
 
@@ -167,7 +167,7 @@ class CharactersThreadsTablesUI(QWidget):
         section_labels = ["1 - 2", "3 - 4", "5 - 6", "7 - 8", "9 - 10"]
 
         # Create table structure
-        row_index = 0
+        row_index = 1
 
         for section_label in section_labels:
             # **Section Label (Spans 5 Rows, 2 Columns)**
@@ -372,3 +372,21 @@ class CharactersThreadsTablesUI(QWidget):
 
     def send_edited_rows_data_dict(self):
         return self.edited_rows_data_dict
+    
+    def prompt_duplicate_action(self, name):
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("Possible Duplicate?")
+            msg_box.setText(f"The name '{name}' already exists for this story.")
+            create_new_btn = msg_box.addButton("Create New", QMessageBox.ActionRole)
+            overwrite_btn = msg_box.addButton("Overwrite", QMessageBox.AcceptRole)
+            remove_dup_btn = msg_box.addButton("Remove Duplicate", QMessageBox.DestructiveRole)
+            msg_box.setDefaultButton(overwrite_btn)
+            msg_box.exec()
+
+            if msg_box.clickedButton() == create_new_btn:
+                return "create"
+            elif msg_box.clickedButton() == overwrite_btn:
+                return "overwrite"
+            elif msg_box.clickedButton() == remove_dup_btn:
+                return "remove"
+            return None    

@@ -85,13 +85,42 @@ class CharactersList(QWidget):
             # Add data to respective master tables
             master_tables_model = model_map.get(name_type_data['type'])
             if master_tables_model:
+                duplicates = session.query(master_tables_model).filter(
+                    master_tables_model.name == name_type_data["name"],
+                    master_tables_model.story_index == self.story_index
+                ).all()
+
+                if duplicates:
+                    user_choice = self.ui.prompt_duplicate_action(name_type_data["name"])
+
+                    if user_choice == "overwrite":
+                        # Dealing only with the first entry in case of multiple duplicates for now. Shall add selection pop-up to select exact duplicate later.
+                        duplicates[0].name = name_type_data["name"]
+                        duplicates[0].story_index = self.story_index
+                        existing_master_data_id = duplicates[0].id
+
+                        session.query(self.characters_list_model).filter(self.characters_list_model.row == row).update({
+                            "name": name_type_data["name"],
+                            "type": name_type_data["type"],
+                            "master_id": existing_master_data_id
+                            })
+                        continue
+
+                    elif user_choice == "remove":
+                        continue
+
+                    continue  # Skip to next row after handling duplicate
+
                 new_master_data = master_tables_model(name=name_type_data["name"], story_index=self.story_index)
                 session.add(new_master_data)
-            # Update the dynamic characters list table specific to the story
-            session.query(self.characters_list_model).filter(self.characters_list_model.row == row).update({
-                "name": name_type_data["name"],
-                "type": name_type_data["type"]
-            })
+                new_master_data_id = new_master_data.id
+
+                # Update the dynamic characters list table specific to the story
+                session.query(self.characters_list_model).filter(self.characters_list_model.row == row).update({
+                    "name": name_type_data["name"],
+                    "type": name_type_data["type"],
+                    "master_id": new_master_data_id
+                    })
         session.commit()  # Commit once at the end
 
     def update_dimensions(self, width, height):
