@@ -2,11 +2,17 @@ from PySide6.QtWidgets import (
     QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy
 )
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Signal
+
+
+CHARACTERS_FIELDS = ['name', 'race', 'age', 'role_profession', 'social_status', 'economic_status']
+PLACES_FIELDS = ['name', 'weather', 'smell']
+ITEMS_FIELDS = ['name', 'material', 'rarity']
 
 
 class GalleryModalUI(QWidget):
     """A modal dialog with a left-hand vertical navigation pane and a close button row."""
+    nav_item_selected = Signal(str, int)
 
     def __init__(self, parent, controller, nav_items, on_close):
         from views.game_dashboard import GameDashboardView
@@ -69,13 +75,14 @@ class GalleryModalUI(QWidget):
         self.nav_layout.setSpacing(0)
 
         for nav_item in nav_items:
-            btn = QPushButton(nav_item, self.nav_frame)
+            btn = QPushButton(nav_item[2], self.nav_frame)
             btn.setFont(QFont("Arial", 14))
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             btn.setStyleSheet("""
                 padding: 10px;
                 color: white;
             """)
+            btn.clicked.connect(lambda checked, type=nav_item[0], id=nav_item[1]: self.nav_item_selected.emit(type, id))
             self.nav_layout.addWidget(btn)
             self.nav_buttons.append(btn)
 
@@ -85,8 +92,10 @@ class GalleryModalUI(QWidget):
 
         # --- Right Content Area ---
         content_frame = QFrame(self)
+        # content_frame.setStyleSheet("background-color: #222;")
         content_layout = QGridLayout(content_frame)
         content_layout.setContentsMargins(10, 0, 0, 0)
+        content_layout.setSpacing(0)
 
         # --- Image ---
         image_placeholder = QLabel("Image block", content_frame)

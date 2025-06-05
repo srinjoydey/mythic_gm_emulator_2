@@ -12,7 +12,7 @@ class MainMenuUI(QWidget):
         self.controller = controller
 
         # Define background image path (now managed here)
-        self.bg_image_path = "assets/main_menu.jpg"
+        self.bg_image_path = "visuals/backgrounds/main_menu.jpg"
 
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
@@ -84,7 +84,7 @@ class NewStoryUI(QWidget):
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
         self.layout.setSpacing(10)
-        self.bg_image_path = "assets/new_story.jpg"
+        self.bg_image_path = "visuals/backgrounds/new_story.jpg"
 
         # Stretch rows and columns for responsiveness
         for i in range(5):
@@ -226,7 +226,7 @@ class ExistingStoryUI(QWidget):
         self.button_mapping = {}
 
         # Define background image path (now managed here)
-        self.bg_image_path = "assets/main_menu.jpg"
+        self.bg_image_path = "visuals/backgrounds/main_menu.jpg"
 
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
@@ -297,7 +297,7 @@ class OraclesTablesUI(QWidget):
         self.controller = controller
 
         # Define background image path (now managed here)
-        self.bg_image_path = "assets/main_menu.jpg"
+        self.bg_image_path = "visuals/backgrounds/main_menu.jpg"
 
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
@@ -369,7 +369,7 @@ class ArtifactsUI(QWidget):
         self.controller = controller
 
         # Define background image path (now managed here)
-        self.bg_image_path = "assets/main_menu.jpg"
+        self.bg_image_path = "visuals/backgrounds/main_menu.jpg"
 
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)

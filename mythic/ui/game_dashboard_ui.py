@@ -1,7 +1,7 @@
 from functools import partial
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtCore import Qt, QSize, Signal, QTimer
+from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
 
 
 class GameDashboardUI(QWidget):
@@ -17,7 +17,7 @@ class GameDashboardUI(QWidget):
         self.story_index = story_index
 
         # Define background image path (now managed here)
-        self.bg_image_path = "assets/game_dashboard.png"
+        self.bg_image_path = "visuals/backgrounds/game_dashboard.png"
 
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
@@ -81,10 +81,10 @@ class GameDashboardUI(QWidget):
 class CharactersThreadsTablesUI(QWidget):
     """UI Layout with both horizontal and vertical scrolling."""
     search_for_suggestions = Signal(dict)
+    row_clicked = Signal(dict)
 
     def __init__(self, parent, controller, table_label, story_index, existing_data):
         from views.game_dashboard import GameDashboardView
-
         super().__init__(parent)
         self.controller = controller
         self.table_label = table_label
@@ -93,22 +93,15 @@ class CharactersThreadsTablesUI(QWidget):
         self.edited_rows_data_dict = {}
 
         rows_to_be_updated = self.existing_data.keys()
-
-        # Apply plain white background
         self.setStyleSheet("background-color: white;")
-
-        # **Main Layout (Non-Scrollable)**
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)  # Keep margins fixed
+        self.layout.setContentsMargins(0, 0, 0, 0)
 
-        # **Create Transparent Container for Close Button Row**
+        # --- Close Row ---
         close_row_container = QWidget(self)
         close_row_container.setStyleSheet("background-color: transparent;")
-
-        # Title Label (Centered)
         title_label = QLabel(self.table_label.title(), close_row_container)
         title_label.setFont(QFont("Arial", 28))
-        # Apply transparent background
         title_label.setStyleSheet("""
             background-color: transparent;
             padding: 10px;
@@ -116,11 +109,9 @@ class CharactersThreadsTablesUI(QWidget):
             font-weight: bold;
             font-style: italic;            
         """)
-
-        # **Add Close Button Inside Transparent Container**
         close_button = QPushButton(close_row_container)
         close_button.setIcon(QIcon("assets/icons/close_icon.png"))
-        close_button.setIconSize(QSize(25, 25))  # Increase icon size
+        close_button.setIconSize(QSize(25, 25))
         close_button.setFont(QFont("Arial", 14, QFont.Bold))
         close_button.setStyleSheet("""
             padding: 0px;
@@ -133,42 +124,33 @@ class CharactersThreadsTablesUI(QWidget):
             self.controller.show_view(
                 GameDashboardView, story_index=self.story_index)
         ))
-
-        # **Add Close Button to Transparent Container**
         close_row_layout = QHBoxLayout(close_row_container)
-        # Change to AlignCenter if needed
         close_row_layout.addWidget(title_label, alignment=Qt.AlignCenter)
         close_row_layout.addWidget(close_button, alignment=Qt.AlignRight)
-        close_row_layout.setContentsMargins(
-            420, 30, 90, 5)  # Left, Top, Right, Bottom
-
-        # **Add Transparent Row to Main Layout**
+        close_row_layout.setContentsMargins(420, 30, 90, 5)
         self.layout.addWidget(close_row_container)
 
-        # **Create a Container for the Table (Adds Left & Right Margins)**
+        # --- Table Container ---
         table_container = QWidget(self)
         table_container_layout = QVBoxLayout(table_container)
-        table_container_layout.setContentsMargins(
-            50, 0, 50, 0)  # Adds space on left & right
+        table_container_layout.setContentsMargins(50, 0, 50, 0)
 
-        # **Create Scroll Area**
         scroll_area = QScrollArea(table_container)
         scroll_area.setWidgetResizable(True)
         scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        scroll_area.setStyleSheet(
-            "border: none; background-color: transparent;")
+        scroll_area.setStyleSheet("border: none; background-color: transparent;")
 
-        # **Create Scrollable Content Widget**
         scroll_widget = QWidget()
+        self.scroll_widget = scroll_widget  # Store reference for handlers
         scroll_layout = QGridLayout(scroll_widget)
         scroll_layout.setSpacing(0)
 
-        # Define section labels (spanning 5 rows each)
         section_labels = ["1 - 2", "3 - 4", "5 - 6", "7 - 8", "9 - 10"]
 
         # Create table structure
         row_index = 0
+
         for section_label in section_labels:
             # **Section Label (Spans 5 Rows, 2 Columns)**
             section_label_widget = QLabel(section_label, scroll_widget)
@@ -186,10 +168,8 @@ class CharactersThreadsTablesUI(QWidget):
             """)
             scroll_layout.addWidget(section_label_widget, row_index, 0, 5, 2)
 
-            # **Row Labels & Table Cells**
             for i in range(5):
                 border_bottom = "2px solid black" if i == 4 else "0.1px solid black"
-
                 row_label = QLabel(section_labels[i], scroll_widget)
                 row_label.setFont(QFont("Arial", 12, QFont.Bold))
                 row_label.setAlignment(Qt.AlignCenter)
@@ -216,16 +196,13 @@ class CharactersThreadsTablesUI(QWidget):
                     font-size: 16px;
                     background-color: white;
                 """)
+                table_cell.setReadOnly(True)
+                table_cell.setProperty("row_index", row_index)
 
-                scroll_layout.addWidget(table_cell, row_index, 4, 1, 6)
-
-                # Add dropdowns column if Characters Table
+                dropdown_cell = None
                 if self.table_label == "characters":
-
                     dropdown_cell = QComboBox(scroll_widget)
-                    dropdown_cell.addItems(
-                        [None, "character", "place", "item"])
-                    # dropdown_cell.setAlignment(Qt.AlignCenter)
+                    dropdown_cell.addItems([None, "character", "place", "item"])
                     dropdown_cell.setStyleSheet(f"""
                         border-top: 1px solid black;
                         border-bottom: {border_bottom};
@@ -239,92 +216,144 @@ class CharactersThreadsTablesUI(QWidget):
                     """)
                     dropdown_cell.setEditable(False)
                     dropdown_cell.setEnabled(False)
+                    dropdown_cell.setProperty("row_index", row_index)
 
                     if row_index in rows_to_be_updated:
-                        # If row exists in existing data, set initial values
                         table_cell.setText(self.existing_data[row_index]["name"])
-                        dropdown_cell.setCurrentText(
-                            self.existing_data[row_index]["type"])
+                        dropdown_cell.setCurrentText(self.existing_data[row_index]["type"])
 
-                    # **Signal to Send Updated Text to View**
-                    # table_cell.textEdited.connect(partial(self.emit_search_for_suggestions, row_index, table_cell))
-                    table_cell.textEdited.connect(partial(self.debounced_emit_search_for_suggestions, row_index, table_cell))
-                    table_cell.editingFinished.connect(
-                        partial(self.enable_dropdown, table_cell, dropdown_cell))
-                    dropdown_cell.currentIndexChanged.connect(
-                        partial(self.edited_row_data, row_index, name=table_cell, type=dropdown_cell))
+                    # --- Editable logic ---
+                    # row_label.mousePressEvent = self.row_click_handler(table_cell, dropdown_cell)
+                    # table_cell.mousePressEvent = self.row_click_handler(table_cell, dropdown_cell)
+                    # dropdown_cell.mousePressEvent = self.row_click_handler(table_cell, dropdown_cell)
+                    table_cell.mouseDoubleClickEvent = self.double_click_handler(table_cell)
+                    table_cell.textEdited.connect(self.debounced_emit_search_for_suggestions)
+                    table_cell.editingFinished.connect(self.finish_edit_handler(table_cell, dropdown_cell))
+                    dropdown_cell.currentIndexChanged.connect(self.edited_row_data)
+                    dropdown_cell.currentIndexChanged.connect(self.dropdown_selection_handler(dropdown_cell, table_cell))
+
                     scroll_layout.addWidget(dropdown_cell, row_index, 10, 1, 2)
 
                 elif self.table_label == "threads":
-
                     if row_index in rows_to_be_updated:
-                        # If row exists in existing data, set initial values
                         table_cell.setText(self.existing_data[row_index]["thread"])
 
-                    # table_cell.textEdited.connect(partial(self.emit_search_for_suggestions, row_index, table_cell))
-                    table_cell.textEdited.connect(partial(self.debounced_emit_search_for_suggestions, row_index, table_cell))
-                    table_cell.editingFinished.connect(
-                        partial(self.edited_row_data, row_index, thread=table_cell))
+                    row_label.mousePressEvent = self.row_click_handler(table_cell)
+                    table_cell.mousePressEvent = self.row_click_handler(table_cell)
+                    table_cell.mouseDoubleClickEvent = self.double_click_handler(table_cell)
+                    table_cell.textEdited.connect(self.debounced_emit_search_for_suggestions)
+                    table_cell.editingFinished.connect(self.finish_edit_handler(table_cell))
+                    table_cell.editingFinished.connect(self.edited_row_data)
 
+                scroll_layout.addWidget(table_cell, row_index, 4, 1, 6)
                 row_index += 1
 
-        # **Set Scrollable Widget Inside Scroll Area**
         scroll_area.setWidget(scroll_widget)
-
-        # **Add Scroll Area to Table Container**
         table_container_layout.addWidget(scroll_area)
-
-        # **Add Table Container to Main Layout**
         self.layout.addWidget(table_container)
+        self.setLayout(self.layout)
 
-        self.setLayout(self.layout)  # Ensure full layout usage
 
+    def row_click_handler(self, table_cell, dropdown_cell=None):
+        def handler(event):
+            if table_cell.isReadOnly():
+                if dropdown_cell:
+                    data = {
+                        "name": table_cell.text(),
+                        "type": dropdown_cell.currentText()
+                    }
+                    self.row_clicked.emit(data)
+                else:
+                    data = {
+                        "thread": table_cell.text()
+                    }
+                    self.row_clicked.emit(data)
+            else:
+                event.ignore()
+        return handler
 
+    def double_click_handler(self, table_cell):
+        def handler(event):
+            print(f"table_cell: {table_cell.text()}")
+            if event.type() == QEvent.MouseButtonDblClick and table_cell.isReadOnly():
+                # Set all table_cells to read-only and all dropdowns to disabled
+                for le in self.scroll_widget.findChildren(QLineEdit):
+                    le.setReadOnly(True)
+                for cb in self.scroll_widget.findChildren(QComboBox):
+                    cb.setEnabled(False)
+                # Now enable only the current cell and dropdown
+                table_cell.setReadOnly(False)
+                table_cell.setFocus()
+                table_cell.setCursorPosition(len(table_cell.text()))
+                row_index = table_cell.property("row_index")
+                for cb in self.scroll_widget.findChildren(QComboBox):
+                    if cb.property("row_index") == row_index:
+                        cb.setEnabled(True)
+        return handler
+    
     def emit_search_for_suggestions(self, row_index, table_cell, text_from_signal):
         self.search_for_suggestions.emit({
             "row": row_index,
             "data": table_cell.text()
         })
 
-    def debounced_emit_search_for_suggestions(self, row_index, table_cell, text_from_signal):
-        # Debounce timer dictionary on self
+    def debounced_emit_search_for_suggestions(self, text):
+        sender = self.sender()
+        row_index = sender.property("row_index")
         if not hasattr(self, "debounce_timers"):
             self.debounce_timers = {}
-        # Stop any existing timer for this cell
-        if table_cell in self.debounce_timers:
-            self.debounce_timers[table_cell].stop()
+        # Stop any existing timer for this sender
+        if sender in self.debounce_timers:
+            self.debounce_timers[sender].stop()
         else:
-            self.debounce_timers[table_cell] = QTimer(self)
-            self.debounce_timers[table_cell].setSingleShot(True)
-            self.debounce_timers[table_cell].timeout.connect(
-                partial(self.emit_search_for_suggestions, row_index, table_cell, text_from_signal)
+            self.debounce_timers[sender] = QTimer(self)
+            self.debounce_timers[sender].setSingleShot(True)
+            # Use a lambda to capture the current sender and row_index
+            self.debounce_timers[sender].timeout.connect(
+                lambda s=sender, r=row_index: self.search_for_suggestions.emit({
+                    "row": r,
+                    "data": s.text()
+                })
             )
-        # Start/restart the timer (e.g., 400 ms delay)
-        self.debounce_timers[table_cell].start(400)
+        self.debounce_timers[sender].start(400)
 
-    def enable_dropdown(self, field, dropdown):
-        """Enable dropdown only after text is entered in QLineEdit."""
-        if field.text().strip():  # Ensure field is not empty
-            dropdown.setEnabled(True)
+    def finish_edit_handler(self, table_cell, dropdown_cell=None):
+        def handler():
+            table_cell.setReadOnly(True)
+        return handler
 
-    def edited_row_data(self, row, *args, **kwargs):
-        """Stores the edited row data and removes cursor focus."""
+    def edited_row_data(self):
+        sender = self.sender()
+        row_index = sender.property("row_index")
         if self.table_label == "characters":
-            if kwargs.get("type").currentText():
-                self.edited_rows_data_dict[row] = {
-                    "name": kwargs.get("name").text(),  # Store the edited text
-                    # Store selected dropdown value
-                    "type": kwargs.get("type").currentText()
+            # sender is dropdown_cell
+            table_cell = None
+            # Find the table_cell for this row
+            for le in self.scroll_widget.findChildren(QLineEdit):
+                if le.property("row_index") == row_index:
+                    table_cell = le
+                    break
+            if table_cell and sender.currentText():
+                self.edited_rows_data_dict[row_index] = {
+                    "name": table_cell.text(),
+                    "type": sender.currentText()
                 }
-                # Removes focus so the cursor disappears
-                kwargs.get("name").clearFocus()
-
+                table_cell.clearFocus()
         elif self.table_label == "threads":
-            self.edited_rows_data_dict[row] = {
-                "thread": kwargs.get("thread").text(),  # Store the edited text
-            }
-            # Removes focus so the cursor disappears
-            kwargs.get("thread").clearFocus()
+            # sender is table_cell
+            if sender.text():
+                self.edited_rows_data_dict[row_index] = {
+                    "thread": sender.text()
+                }
+                sender.clearFocus()
+
+    def dropdown_selection_handler(self, dropdown_cell, table_cell):
+        def handler(index):
+            # Only disable if a valid selection is made (not None or empty)
+            if dropdown_cell.currentText():
+                dropdown_cell.setEnabled(False)
+                table_cell.setReadOnly(True)
+        return handler
 
     def send_edited_rows_data_dict(self):
         return self.edited_rows_data_dict

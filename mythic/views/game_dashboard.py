@@ -67,10 +67,14 @@ class CharactersList(QWidget):
         # Attach UI with navigation logic
         self.ui = CharactersThreadsTablesUI(self, controller, "characters", self.story_index, existing_data)
         self.ui.search_for_suggestions.connect(self.send_matching_suggestions_for_row)
+        self.ui.row_clicked.connect(self.receive_clicked_row_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
         
     def send_matching_suggestions_for_row(self, current_typed_data_dict):
         print(f"Current typed data in row {current_typed_data_dict['row']} is {current_typed_data_dict['data']}")
+
+    def receive_clicked_row_data(self, data):
+        print(f"Received clicked row data: {data}")
 
     def receive_edited_rows_data(self, data):
         from models.master_tables import Characters, Places, Items
