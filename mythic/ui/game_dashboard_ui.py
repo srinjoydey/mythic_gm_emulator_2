@@ -78,6 +78,24 @@ class GameDashboardUI(QWidget):
             btn.setMinimumSize(int(width / 6), int(height / 12))
 
 
+class ClickableLabel(QLabel):
+    # Utility wrapper for QLabel to emit a signal on click
+    clicked = Signal()
+
+    def mousePressEvent(self, event):
+        self.clicked.emit()
+        super().mousePressEvent(event)
+
+
+class FocusLineEdit(QLineEdit):
+    # Utility wrapper for QLineEdit to emit a signal when focused
+    focused = Signal()
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self.focused.emit()
+
+
 class CharactersThreadsTablesUI(QWidget):
     """UI Layout with both horizontal and vertical scrolling."""
     search_for_suggestions = Signal(dict)
@@ -170,7 +188,7 @@ class CharactersThreadsTablesUI(QWidget):
 
             for i in range(5):
                 border_bottom = "2px solid black" if i == 4 else "0.1px solid black"
-                row_label = QLabel(section_labels[i], scroll_widget)
+                row_label = ClickableLabel(section_labels[i], scroll_widget)
                 row_label.setFont(QFont("Arial", 12, QFont.Bold))
                 row_label.setAlignment(Qt.AlignCenter)
                 row_label.setStyleSheet(f"""
@@ -185,7 +203,7 @@ class CharactersThreadsTablesUI(QWidget):
                 """)
                 scroll_layout.addWidget(row_label, row_index, 2, 1, 2)
 
-                table_cell = QLineEdit(scroll_widget)
+                table_cell = FocusLineEdit(scroll_widget)
                 table_cell.setStyleSheet(f"""
                     border-top: 1px solid black;
                     border-bottom: {border_bottom};
@@ -223,9 +241,8 @@ class CharactersThreadsTablesUI(QWidget):
                         dropdown_cell.setCurrentText(self.existing_data[row_index]["type"])
 
                     # --- Editable logic ---
-                    # row_label.mousePressEvent = self.row_click_handler(table_cell, dropdown_cell)
-                    # table_cell.mousePressEvent = self.row_click_handler(table_cell, dropdown_cell)
-                    # dropdown_cell.mousePressEvent = self.row_click_handler(table_cell, dropdown_cell)
+                    row_label.clicked.connect(self.row_click_handler(table_cell, dropdown_cell))
+                    table_cell.focused.connect(self.row_click_handler(table_cell, dropdown_cell))
                     table_cell.mouseDoubleClickEvent = self.double_click_handler(table_cell)
                     table_cell.textEdited.connect(self.debounced_emit_search_for_suggestions)
                     table_cell.editingFinished.connect(self.finish_edit_handler(table_cell, dropdown_cell))
@@ -255,7 +272,7 @@ class CharactersThreadsTablesUI(QWidget):
 
 
     def row_click_handler(self, table_cell, dropdown_cell=None):
-        def handler(event):
+        def handler():
             if table_cell.isReadOnly():
                 if dropdown_cell:
                     data = {
@@ -268,8 +285,6 @@ class CharactersThreadsTablesUI(QWidget):
                         "thread": table_cell.text()
                     }
                     self.row_clicked.emit(data)
-            else:
-                event.ignore()
         return handler
 
     def double_click_handler(self, table_cell):
