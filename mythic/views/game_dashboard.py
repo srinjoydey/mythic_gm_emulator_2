@@ -113,6 +113,7 @@ class CharactersList(QWidget):
 
                 new_master_data = master_tables_model(name=name_type_data["name"], story_index=self.story_index)
                 session.add(new_master_data)
+                session.flush()
                 new_master_data_id = new_master_data.id
 
                 # Update the dynamic characters list table specific to the story

@@ -98,34 +98,34 @@ class GalleryModalUI(QWidget):
         content_layout.setSpacing(0)
 
         # --- Image ---
-        image_placeholder = QLabel("Image block", content_frame)
-        image_placeholder.setAlignment(Qt.AlignCenter)
-        image_placeholder.setFont(QFont("Arial", 16))
-        image_placeholder.setStyleSheet("""
+        image_section = QLabel("Image block", content_frame)
+        image_section.setAlignment(Qt.AlignCenter)
+        image_section.setFont(QFont("Arial", 16))
+        image_section.setStyleSheet("""
             background-color: green;
             color: black;
         """)
-        content_layout.addWidget(image_placeholder, 0, 0, 3, 3)
+        content_layout.addWidget(image_section, 0, 0, 3, 3)
 
         # --- Details ---
-        details_placeholder = QLabel("Details block", content_frame)
-        details_placeholder.setAlignment(Qt.AlignCenter)
-        details_placeholder.setFont(QFont("Arial", 16))
-        details_placeholder.setStyleSheet("""
+        details_section = QLabel("Details block", content_frame)
+        details_section.setAlignment(Qt.AlignCenter)
+        details_section.setFont(QFont("Arial", 16))
+        details_section.setStyleSheet("""
             background-color: yellow;
             color: black;
         """)
-        content_layout.addWidget(details_placeholder, 0, 3, 3, 2)
+        content_layout.addWidget(details_section, 0, 3, 3, 2)
 
         # --- Text ---
-        text_placeholder = QLabel("Text block", content_frame)
-        text_placeholder.setAlignment(Qt.AlignCenter)
-        text_placeholder.setFont(QFont("Arial", 16))
-        text_placeholder.setStyleSheet("""
+        text_section = QLabel("Text block", content_frame)
+        text_section.setAlignment(Qt.AlignCenter)
+        text_section.setFont(QFont("Arial", 16))
+        text_section.setStyleSheet("""
             background-color: pink;
             color: black;
         """)                
-        content_layout.addWidget(text_placeholder, 3, 0, 2, 5)
+        content_layout.addWidget(text_section, 3, 0, 2, 5)
 
         self.layout.addWidget(content_frame, 1, 3, 10, 10)
 

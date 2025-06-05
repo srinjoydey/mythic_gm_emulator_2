@@ -17,7 +17,7 @@ class GalleryModalView(QWidget):
             places_list = [('places', id, name) for id, name in session.query(Places).with_entities(Places.id, Places.name).all()]
             items_list = [('items', id, name) for id, name in session.query(Items).with_entities(Items.id, Items.name).all()]
         else:
-            characters_list = [('characters', id, name) for id, name in session.query(Characters).with_entities(Characters.id, Characters.name).filter(Characters.story_index == self.story_index, Characters.acive == True).all()]
+            characters_list = [('characters', id, name) for id, name in session.query(Characters).with_entities(Characters.id, Characters.name).filter(Characters.story_index == self.story_index, Characters.active == True).all()]
             places_list = [('places', id, name) for id, name in session.query(Places).with_entities(Places.id, Places.name).filter(Places.story_index == self.story_index, Places.active == True).all()]
             items_list = [('items', id, name) for id, name in session.query(Items).with_entities(Items.id, Items.name).filter(Items.story_index == self.story_index, Items.active == True).all()]
 
