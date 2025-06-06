@@ -1,21 +1,24 @@
 from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit
+    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit, QFileDialog
 )
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QFont, QIcon, QPixmap
 from PySide6.QtCore import Qt, QSize, Signal, QTimer
+import os
+import shutil
 
 
-CHARACTERS_FIELDS = ['name', 'race', 'age', 'role_profession', 'social_status', 'economic_status']
-PLACES_FIELDS = ['name', 'weather', 'smell']
-ITEMS_FIELDS = ['name', 'material', 'rarity']
+CHARACTERS_FIELDS = ['name', 'race', 'age', 'role_profession', 'social_status', 'economic_status', 'image_path']
+PLACES_FIELDS = ['name', 'weather', 'smell', 'image_path']
+ITEMS_FIELDS = ['name', 'material', 'rarity', 'image_path']
 
 
 class GalleryModalUI(QWidget):
     """A modal dialog with a left-hand vertical navigation pane and a close button row."""
     details_data_ready = Signal(list)
     close_modal = Signal()
+    image_uploaded = Signal(str)
 
-    def __init__(self, parent, controller, nav_items):
+    def __init__(self, parent, controller, nav_items, first_nav_type=None, first_nav_id=None):
         super().__init__(parent)
         self.parent_view = parent
         self.controller = controller
@@ -28,6 +31,7 @@ class GalleryModalUI(QWidget):
         self.current_nav_id = None
         self.nav_id_to_label = {}
         self.nav_btn_map = {}
+        self.current_saved_image_path = None
 
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setMinimumSize(600, 400)
@@ -105,14 +109,19 @@ class GalleryModalUI(QWidget):
         content_layout.setSpacing(0)
 
         # --- Image ---
-        self.image_layout = QLabel("Image block", content_frame)
-        self.image_layout.setAlignment(Qt.AlignCenter)
-        self.image_layout.setFont(QFont("Arial", 16))
-        self.image_layout.setStyleSheet("""
-            background-color: green;
-            color: black;
-        """)
-        content_layout.addWidget(self.image_layout, 0, 0, 3, 3)
+        self.image_section = QFrame(content_frame)
+        self.image_section.setStyleSheet("""
+            background-color: #333;
+        """) 
+        content_layout.addWidget(self.image_section, 0, 0, 3, 3)
+
+        self.image_label = QLabel(self.image_section)
+        self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.image_label.setAlignment(Qt.AlignCenter) 
+        image_section_layout = QVBoxLayout(self.image_section)
+        image_section_layout.setContentsMargins(0, 0, 0, 0)
+        image_section_layout.setSpacing(0)
+        image_section_layout.addWidget(self.image_label) 
 
         # --- Details ---
         self.details_section = QFrame(content_frame)
@@ -155,6 +164,17 @@ class GalleryModalUI(QWidget):
             details_row.editingFinished.connect(self.details_editing_finished)
             self.details_rows.append(details_row)
 
+        self.image_upload_button = QPushButton("Upload Image", self.details_section)
+        self.image_upload_button.setFont(QFont("Arial", 12))
+        self.image_upload_button.setStyleSheet("""
+            padding: 10px;
+            color: white;
+            background-color: maroon;
+            border-radius: 6px;
+        """)
+        self.image_upload_button.clicked.connect(self.open_image_file_dialog)
+        self.details_layout.addWidget(self.image_upload_button)
+
         # --- Text ---
         self.text_layout = QLabel("Text block", content_frame)
         self.text_layout.setAlignment(Qt.AlignCenter)
@@ -169,8 +189,12 @@ class GalleryModalUI(QWidget):
 
         if self.nav_buttons:
             # Simulate a click on the first nav button
-            first_nav_type = nav_items[0][0]
-            first_nav_id = nav_items[0][1]
+            if not first_nav_type:
+                first_nav_type = nav_items[0][0]
+            else:
+                first_nav_type = first_nav_type + "s"
+            if not first_nav_id:
+                first_nav_id = nav_items[0][1]
             first_btn = self.nav_btn_map.get((first_nav_type, first_nav_id))
             QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, first_nav_type, first_nav_id))
 
@@ -206,10 +230,18 @@ class GalleryModalUI(QWidget):
     def update_content_for_nav(self, nav_type, nav_id):
         # Fetch current data from the view/db
         details_data = self.parent_view.get_details_data(nav_type, nav_id)
-        self.details_rows[0].setText(nav_type.upper())
+        self.current_saved_image_path = details_data.pop('image_path', None) if details_data else None
+        self.details_rows[0].setText(nav_type.upper()[:-1])
+
+        if self.current_saved_image_path:
+            self.set_image(self.current_saved_image_path)
+        else:
+            self.image_label.clear()
+            self._original_pixmap = None
+            self.image_upload_button.setText("Upload Image")
 
         for i in range(1, len(self.details_rows)):
-            if self.details_fields and i-1 < len(self.details_fields):
+            if self.details_fields and i-1 < len(self.details_fields) - 1:
                 field_name = self.details_fields[i-1]
                 label = field_name.capitalize()
                 self.details_rows[i].setPlaceholderText(label)
@@ -227,6 +259,39 @@ class GalleryModalUI(QWidget):
                 self.details_rows[i].setToolTip("")
                 self.details_rows[i].setText("")
                 self.details_rows[i].setReadOnly(False)
+
+    def open_image_file_dialog(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Image", "", "Images (*.png *.jpg *.jpeg *.bmp *.gif)"
+        )
+        if file_path:
+            self.set_image(file_path)  # You can implement set_image as shown in a previous answer
+
+    def set_image(self, image_path):
+        """Load, save, and display the image, scaled to fit the label."""
+        nav_type = self.current_nav_type
+        nav_id = self.current_nav_id
+        label = self.nav_id_to_label.get((nav_type, nav_id), "image")
+        ext = os.path.splitext(image_path)[1] or ".png"
+        save_dir = os.path.join("visuals", nav_type)
+        os.makedirs(save_dir, exist_ok=True)
+        filename = f"{nav_id}_{label}{ext}"
+        filename = "".join(c if c.isalnum() or c in "._-" else "_" for c in filename)
+        save_path = os.path.join(save_dir, filename)
+        # Only copy if source and destination are different
+        if os.path.abspath(image_path) != os.path.abspath(save_path):
+            shutil.copy(image_path, save_path)
+        self._current_image_path = save_path
+        self.image_uploaded.emit(save_path)
+        pixmap = QPixmap(save_path)
+        if not pixmap.isNull():
+            self._original_pixmap = pixmap
+            self._update_image_pixmap()
+            self.image_upload_button.setText("Change Image")
+        else:
+            self.image_label.clear()
+            self._original_pixmap = None
+            self.image_upload_button.setText("Upload Image")  
 
     def details_text_changed(self, text):
         sender = self.sender()
@@ -267,6 +332,19 @@ class GalleryModalUI(QWidget):
     def emit_details_data_and_close(self):
         self.emit_details_data()
         self.close_modal.emit()  # Emit close signal
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_image_pixmap()
+
+    def _update_image_pixmap(self):
+        if hasattr(self, '_original_pixmap') and self._original_pixmap:
+            scaled = self._original_pixmap.scaled(
+                self.image_label.size(),
+                Qt.IgnoreAspectRatio,
+                Qt.SmoothTransformation
+            )
+            self.image_label.setPixmap(scaled)
 
 
     # def update_dimensions(self, width, height):

@@ -274,15 +274,18 @@ class CharactersThreadsTablesUI(QWidget):
     def row_click_handler(self, table_cell, dropdown_cell=None):
         def handler():
             if table_cell.isReadOnly():
+                row_index = table_cell.property("row_index")
                 if dropdown_cell:
                     data = {
                         "name": table_cell.text(),
-                        "type": dropdown_cell.currentText()
+                        "type": dropdown_cell.currentText(),
+                        "row_index": row_index
                     }
                     self.row_clicked.emit(data)
                 else:
                     data = {
-                        "thread": table_cell.text()
+                        "thread": table_cell.text(),
+                        "row_index": row_index
                     }
                     self.row_clicked.emit(data)
         return handler

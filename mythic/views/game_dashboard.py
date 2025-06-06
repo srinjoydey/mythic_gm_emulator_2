@@ -1,7 +1,10 @@
 from PySide6.QtWidgets import QWidget
 from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapted for PySide6
+from models.master_tables import Characters, Places, Items
 from models.db_config import session
  
+
+MODEL_MAP = {"character": Characters, "place": Places, "item": Items}
 
 class GameDashboardView(QWidget):
     """Handles main menu logic & navigation."""
@@ -61,7 +64,8 @@ class CharactersList(QWidget):
         for data in existing_data_queryset:
             existing_data[data.row] = {
                 "name": data.name,
-                "type": data.type
+                "type": data.type,
+                "master_id": data.master_id
             }
 
         # Attach UI with navigation logic
@@ -74,16 +78,22 @@ class CharactersList(QWidget):
         print(f"Current typed data in row {current_typed_data_dict['row']} is {current_typed_data_dict['data']}")
 
     def receive_clicked_row_data(self, data):
+        from views.gallery import GalleryModalView
+
         print(f"Received clicked row data: {data}")
+        result = session.query(self.characters_list_model).filter(
+            self.characters_list_model.row == data['row_index'],
+            self.characters_list_model.name == data['name'],
+            self.characters_list_model.type == data['type']
+        ).first()
+        if result:
+            master_id = result.master_id
+        self.controller.show_view(GalleryModalView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id)
 
     def receive_edited_rows_data(self, data):
-        from models.master_tables import Characters, Places, Items
-
-        model_map = {"character": Characters, "place": Places, "item": Items}
-
         for row, name_type_data in data.items():
             # Add data to respective master tables
-            master_tables_model = model_map.get(name_type_data['type'])
+            master_tables_model = MODEL_MAP.get(name_type_data['type'])
             if master_tables_model:
                 duplicates = session.query(master_tables_model).filter(
                     master_tables_model.name == name_type_data["name"],

@@ -9,7 +9,7 @@ MODEL_MAP = {"characters": Characters, "places": Places, "items": Items}
 class GalleryModalView(QWidget):
     """Handles main menu logic & navigation."""
 
-    def __init__(self, parent, controller, story_index=None):
+    def __init__(self, parent, controller, story_index=None, first_nav_type=None, first_nav_id=None):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
@@ -26,9 +26,10 @@ class GalleryModalView(QWidget):
         characters_nav_bar_list = sorted(characters_list + places_list + items_list, key=lambda x: x[2])
 
         # Attach UI with navigation logic
-        self.ui = GalleryModalUI(self, controller, characters_nav_bar_list)
+        self.ui = GalleryModalUI(self, controller, characters_nav_bar_list, first_nav_type=first_nav_type, first_nav_id=first_nav_id)
         self.ui.details_data_ready.connect(self.receive_details_data)
         self.ui.close_modal.connect(self.navigate_to_game_dashboard)
+        self.ui.image_uploaded.connect(self.save_uploaded_image)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
     def navigate_to_game_dashboard(self):
@@ -48,9 +49,19 @@ class GalleryModalView(QWidget):
         model = MODEL_MAP[nav_type]
         data = session.query(model).filter(model.id == nav_id).first()
         if data:
-            # Return a dict of all fields (or just the ones you want)
-            return {field: getattr(data, field, "") for field in self.ui.details_fields or []}
+            # Return a dict of all fields
+            data = {field: getattr(data, field, "") for field in self.ui.details_fields or []}
+            return data
         return {}
+    
+    def save_uploaded_image(self, image_path):
+        """Saves the uploaded image path to the database."""
+        if self.ui.current_nav_type and self.ui.current_nav_id:
+            model = MODEL_MAP[self.ui.current_nav_type]
+            data = session.query(model).filter(model.id == self.ui.current_nav_id).first()
+            if data:
+                data.image_path = image_path
+                session.commit()
 
 
     # def update_dimensions(self, width, height):
