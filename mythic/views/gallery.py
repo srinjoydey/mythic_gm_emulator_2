@@ -1,8 +1,10 @@
 from PySide6.QtWidgets import QWidget
 from ui.gallery_ui import GalleryModalUI
 from models.db_config import session
-from models.master_tables import Characters, Places, Items, Threads
+from models.master_tables import Characters, Places, Items
 
+
+MODEL_MAP = {"characters": Characters, "places": Places, "items": Items}
 
 class GalleryModalView(QWidget):
     """Handles main menu logic & navigation."""
@@ -24,18 +26,32 @@ class GalleryModalView(QWidget):
         characters_nav_bar_list = sorted(characters_list + places_list + items_list, key=lambda x: x[2])
 
         # Attach UI with navigation logic
-        self.ui = GalleryModalUI(
-            self, controller, characters_nav_bar_list, on_close=self.close)
-        self.ui.nav_item_selected.connect(self.details_of_selected_nav_item)
+        self.ui = GalleryModalUI(self, controller, characters_nav_bar_list)
+        self.ui.details_data_ready.connect(self.receive_details_data)
+        self.ui.close_modal.connect(self.navigate_to_game_dashboard)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
-    def navigate_to_main_menu(self):
-        from views.main_menu import MainMenu
-        self.controller.show_view(MainMenu)
+    def navigate_to_game_dashboard(self):
+        from views.game_dashboard import GameDashboardView
+        self.controller.show_view(GameDashboardView, story_index=self.story_index)
 
-    def details_of_selected_nav_item(self, type, id):
-        print(f"type: {type}")
-        print(f"id: {id}")
+    def receive_details_data(self, details_data_list):
+        if details_data_list:
+            model = MODEL_MAP[details_data_list[0][0]]
+            data = session.query(model).filter(model.id == details_data_list[0][1]).first()
+            if data:
+                for field, value in details_data_list[0][2].items():
+                    setattr(data, field, value)
+                session.commit()
+
+    def get_details_data(self, nav_type, nav_id):
+        model = MODEL_MAP[nav_type]
+        data = session.query(model).filter(model.id == nav_id).first()
+        if data:
+            # Return a dict of all fields (or just the ones you want)
+            return {field: getattr(data, field, "") for field in self.ui.details_fields or []}
+        return {}
+
 
     # def update_dimensions(self, width, height):
     #     """Propagate resizing logic to UI component."""

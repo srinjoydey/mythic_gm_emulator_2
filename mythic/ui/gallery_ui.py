@@ -1,8 +1,8 @@
 from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy
+    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit
 )
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtCore import Qt, QSize, Signal, QTimer
 
 
 CHARACTERS_FIELDS = ['name', 'race', 'age', 'role_profession', 'social_status', 'economic_status']
@@ -12,14 +12,22 @@ ITEMS_FIELDS = ['name', 'material', 'rarity']
 
 class GalleryModalUI(QWidget):
     """A modal dialog with a left-hand vertical navigation pane and a close button row."""
-    nav_item_selected = Signal(str, int)
+    details_data_ready = Signal(list)
+    close_modal = Signal()
 
-    def __init__(self, parent, controller, nav_items, on_close):
-        from views.game_dashboard import GameDashboardView
-
+    def __init__(self, parent, controller, nav_items):
         super().__init__(parent)
+        self.parent_view = parent
         self.controller = controller
         self.nav_buttons = []
+        self.details_rows = []
+        self.details_fields = None
+        self.selected_nav_btn = None
+        self.details_data_list = []  # Will hold [nav_type, nav_id, {field: value, ...}] entries
+        self.current_nav_type = None
+        self.current_nav_id = None
+        self.nav_id_to_label = {}
+        self.nav_btn_map = {}
 
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setMinimumSize(600, 400)
@@ -52,9 +60,7 @@ class GalleryModalUI(QWidget):
             background-color: white;
             color: maroon;
         """)
-        close_button.clicked.connect(lambda: (self.controller.show_view(
-            GameDashboardView, story_index=self.story_index)
-        ))
+        close_button.clicked.connect(self.emit_details_data_and_close)
 
         close_row_layout = QHBoxLayout(close_row_container)
         close_row_layout.addWidget(self.title_label, alignment=Qt.AlignCenter)
@@ -82,9 +88,11 @@ class GalleryModalUI(QWidget):
                 padding: 10px;
                 color: white;
             """)
-            btn.clicked.connect(lambda checked, type=nav_item[0], id=nav_item[1]: self.nav_item_selected.emit(type, id))
+            btn.clicked.connect(lambda checked, b=btn, type=nav_item[0], id=nav_item[1]: self.handle_nav_click(b, type, id))
             self.nav_layout.addWidget(btn)
             self.nav_buttons.append(btn)
+            self.nav_id_to_label[(nav_item[0], nav_item[1])] = nav_item[2]
+            self.nav_btn_map[(nav_item[0], nav_item[1])] = btn
 
         self.nav_layout.addStretch()
         self.nav_scroll_area.setWidget(self.nav_frame)
@@ -92,42 +100,174 @@ class GalleryModalUI(QWidget):
 
         # --- Right Content Area ---
         content_frame = QFrame(self)
-        # content_frame.setStyleSheet("background-color: #222;")
         content_layout = QGridLayout(content_frame)
         content_layout.setContentsMargins(10, 0, 0, 0)
         content_layout.setSpacing(0)
 
         # --- Image ---
-        image_section = QLabel("Image block", content_frame)
-        image_section.setAlignment(Qt.AlignCenter)
-        image_section.setFont(QFont("Arial", 16))
-        image_section.setStyleSheet("""
+        self.image_layout = QLabel("Image block", content_frame)
+        self.image_layout.setAlignment(Qt.AlignCenter)
+        self.image_layout.setFont(QFont("Arial", 16))
+        self.image_layout.setStyleSheet("""
             background-color: green;
             color: black;
         """)
-        content_layout.addWidget(image_section, 0, 0, 3, 3)
+        content_layout.addWidget(self.image_layout, 0, 0, 3, 3)
 
         # --- Details ---
-        details_section = QLabel("Details block", content_frame)
-        details_section.setAlignment(Qt.AlignCenter)
-        details_section.setFont(QFont("Arial", 16))
-        details_section.setStyleSheet("""
-            background-color: yellow;
-            color: black;
-        """)
-        content_layout.addWidget(details_section, 0, 3, 3, 2)
+        self.details_section = QFrame(content_frame)
+        self.details_layout = QVBoxLayout(self.details_section)
+        self.details_layout.setContentsMargins(0, 0, 0, 0)
+        self.details_layout.setSpacing(0)
+        # self.details_layout.setAlignment(Qt.AlignCenter)
+        self.details_section.setStyleSheet("""
+            background-color: #333;
+        """) 
+        content_layout.addWidget(self.details_section, 0, 3, 3, 2)
+
+        for i in range(7):
+            details_row = QLineEdit(self.details_section)          
+            details_row.setAlignment(Qt.AlignCenter)
+            if i == 0:
+                font = QFont("Arial", 13, QFont.Bold)
+                font.setItalic(True)
+                details_row.setFont(font)           
+                details_row.setStyleSheet("""
+                    padding: 14px;
+                    color: yellow;                                       
+                """)
+                self.details_layout.addWidget(details_row, 3)
+            elif i == 1:
+                details_row.setFont(QFont("Arial", 15, QFont.Bold))
+                details_row.setStyleSheet("""
+                    padding: 13px;
+                    color: lightblue;
+                """)
+                self.details_layout.addWidget(details_row, 2)
+            else:
+                details_row.setFont(QFont("Arial", 12))              
+                details_row.setStyleSheet("""
+                    padding: 11px;
+                    color: white;
+                """)
+                self.details_layout.addWidget(details_row, 2)
+            details_row.textChanged.connect(self.details_text_changed)    
+            details_row.editingFinished.connect(self.details_editing_finished)
+            self.details_rows.append(details_row)
 
         # --- Text ---
-        text_section = QLabel("Text block", content_frame)
-        text_section.setAlignment(Qt.AlignCenter)
-        text_section.setFont(QFont("Arial", 16))
-        text_section.setStyleSheet("""
+        self.text_layout = QLabel("Text block", content_frame)
+        self.text_layout.setAlignment(Qt.AlignCenter)
+        self.text_layout.setFont(QFont("Arial", 16))
+        self.text_layout.setStyleSheet("""
             background-color: pink;
             color: black;
         """)                
-        content_layout.addWidget(text_section, 3, 0, 2, 5)
+        content_layout.addWidget(self.text_layout, 3, 0, 2, 5)
 
         self.layout.addWidget(content_frame, 1, 3, 10, 10)
+
+        if self.nav_buttons:
+            # Simulate a click on the first nav button
+            first_nav_type = nav_items[0][0]
+            first_nav_id = nav_items[0][1]
+            first_btn = self.nav_btn_map.get((first_nav_type, first_nav_id))
+            QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, first_nav_type, first_nav_id))
+
+
+    def handle_nav_click(self, btn, nav_type, nav_id):
+        # Highlight the selected button
+        for b in self.nav_buttons:
+            b.setStyleSheet("""
+                padding: 10px;
+                color: white;
+            """)
+        btn.setStyleSheet("""
+            padding: 10px;
+            color: white;
+            background-color: #0078d7;  /* Highlight color */
+            font-weight: bold;
+        """)
+        self.selected_nav_btn = btn
+        if nav_type == 'characters':
+            self.details_fields = CHARACTERS_FIELDS
+        elif nav_type == 'places':
+            self.details_fields = PLACES_FIELDS
+        elif nav_type == 'items':
+            self.details_fields = ITEMS_FIELDS
+
+        self.current_nav_type = nav_type
+        self.current_nav_id = nav_id
+        self.emit_details_data() 
+
+        # Update content area (details/image/text) as needed
+        self.update_content_for_nav(nav_type, nav_id)
+
+    def update_content_for_nav(self, nav_type, nav_id):
+        # Fetch current data from the view/db
+        details_data = self.parent_view.get_details_data(nav_type, nav_id)
+        self.details_rows[0].setText(nav_type.upper())
+
+        for i in range(1, len(self.details_rows)):
+            if self.details_fields and i-1 < len(self.details_fields):
+                field_name = self.details_fields[i-1]
+                label = field_name.capitalize()
+                self.details_rows[i].setPlaceholderText(label)
+                self.details_rows[i].setToolTip(label)
+                if field_name == "name":
+                    nav_label = self.nav_id_to_label.get((nav_type, nav_id), "")
+                    self.details_rows[i].setText(nav_label)
+                    self.details_rows[i].setReadOnly(True)
+                else:
+                    # Set value from db if present, else blank
+                    self.details_rows[i].setText(details_data.get(field_name, ""))
+                    self.details_rows[i].setReadOnly(False)
+            else:
+                self.details_rows[i].setPlaceholderText("")
+                self.details_rows[i].setToolTip("")
+                self.details_rows[i].setText("")
+                self.details_rows[i].setReadOnly(False)
+
+    def details_text_changed(self, text):
+        sender = self.sender()
+        idx = self.details_rows.index(sender)
+        if idx == 0 or not self.details_fields or idx-1 >= len(self.details_fields):
+            return
+        field_name = self.details_fields[idx-1]
+        label = field_name.capitalize()
+        if text:
+            sender.setPlaceholderText("")
+            sender.setToolTip(label)
+        else:
+            sender.setPlaceholderText(label)
+            sender.setToolTip("")
+
+    def details_editing_finished(self):
+        sender = self.sender()
+        idx = self.details_rows.index(sender)
+        if idx == 0 or not self.details_fields or idx-1 >= len(self.details_fields):
+            return  # Skip first row (nav_type) or out of bounds
+        nav_type = self.current_nav_type
+        nav_id = self.current_nav_id
+        field = self.details_fields[idx-1]
+        value = sender.text()
+        # Find or create the entry for this nav_type/nav_id
+        for entry in self.details_data_list:
+            if entry[0] == nav_type and entry[1] == nav_id:
+                entry[2][field] = value
+                break
+        else:
+            # Not found, create new
+            entry_dict = {field: value}
+            self.details_data_list.append([nav_type, nav_id, entry_dict])
+
+    def emit_details_data(self):
+        self.details_data_ready.emit(self.details_data_list)
+
+    def emit_details_data_and_close(self):
+        self.emit_details_data()
+        self.close_modal.emit()  # Emit close signal
+
 
     # def update_dimensions(self, width, height):
     #     """Updates font sizes and button sizes dynamically when the main window resizes."""
