@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout
 from ui.main_menu_ui import MainMenuUI
 from models.db_config import session, engine
 from sqlalchemy import inspect
+from utils.static_data.tables_index import TABLES_INDEX
 
 
 class MainMenu(QWidget):
@@ -121,7 +122,8 @@ class ExistingStoryView(QWidget):
 class OraclesTablesView(QWidget):
     """Handles main menu layout & navigation."""
     def __init__(self, parent, controller):
-        from ui.main_menu_ui import OraclesTablesUI
+        # from ui.main_menu_ui import OraclesTablesUI
+        from ui.oracles_tables_ui import OraclesTablesUI
 
         super().__init__(parent)
         self.controller = controller
@@ -130,12 +132,14 @@ class OraclesTablesView(QWidget):
         self.bg_image_path = "assets/page1_bg.jpg"
 
         # Attach UI with navigation logic
-        self.ui = OraclesTablesUI(self, controller)
-
+        self.ui = OraclesTablesUI(self, controller, list(TABLES_INDEX.keys()))
+        self.ui.nav_item_selected.connect(self.get_table_data)
         # Layout to ensure proper expansion
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.ui)
-        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for full expansion
+        self.setLayout(self.ui.layout)
+
+    def get_table_data(self, nav_item):
+        table = TABLES_INDEX.get(nav_item)
+        self.ui.update_content_for_nav(nav_item, table)
 
     def update_dimensions(self, width, height):
         """Propagate resizing logic to UI component."""
