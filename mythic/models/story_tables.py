@@ -13,7 +13,9 @@ class CharactersList:
     row = Column(Integer, primary_key=True)
     name = Column(String, nullable=True)
     type = Column(String, nullable=True)
+    master_id = Column(Integer, nullable=True)
 
 class ThreadsList:
     row = Column(Integer, primary_key=True)
     thread = Column(String, nullable=True)
+    master_id = Column(Integer, nullable=True)
