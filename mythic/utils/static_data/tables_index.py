@@ -21,7 +21,7 @@ from .mythic_tables.page_215 import TERRAIN_DESCRIPTORS, UNDEAD_DESCRIPTORS, VIS
 
 TABLES_INDEX = {
     "Fate Chart": FATE_CHART,
-    "Fate Question Answers": FATE_QUESTION_ANSWERS,
+    # "Fate Question Answers": FATE_QUESTION_ANSWERS,
     "Random Event Focus Table": RANDOM_EVENT_FOCUS_TABLE,
     "Action 1": ACTION_1,
     "Action 2": ACTION_2,

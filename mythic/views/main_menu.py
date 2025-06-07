@@ -123,7 +123,7 @@ class OraclesTablesView(QWidget):
     """Handles main menu layout & navigation."""
     def __init__(self, parent, controller):
         # from ui.main_menu_ui import OraclesTablesUI
-        from ui.oracles_tables_ui import OraclesTablesUI
+        from ui.main_menu_ui import OraclesTablesUI
 
         super().__init__(parent)
         self.controller = controller
@@ -139,7 +139,12 @@ class OraclesTablesView(QWidget):
 
     def get_table_data(self, nav_item):
         table = TABLES_INDEX.get(nav_item)
-        self.ui.update_content_for_nav(nav_item, table)
+        if nav_item == "Fate Chart":
+            self.ui.render_fate_chart(nav_item, table)
+        elif nav_item == "Random Event Focus Table":
+            self.ui.render_random_event_focus_table(nav_item, table)
+        else:
+            self.ui.render_d100_table(nav_item, table)
 
     def update_dimensions(self, width, height):
         """Propagate resizing logic to UI component."""
