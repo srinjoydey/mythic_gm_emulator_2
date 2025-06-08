@@ -79,16 +79,15 @@ class CharactersList(QWidget):
 
     def receive_clicked_row_data(self, data):
         from views.gallery import GalleryModalView
-
-        print(f"Received clicked row data: {data}")
-        result = session.query(self.characters_list_model).filter(
-            self.characters_list_model.row == data['row_index'],
-            self.characters_list_model.name == data['name'],
-            self.characters_list_model.type == data['type']
-        ).first()
-        if result:
-            master_id = result.master_id
-        self.controller.show_view(GalleryModalView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id)
+        if data['name']:
+            result = session.query(self.characters_list_model).filter(
+                self.characters_list_model.row == data['row_index'],
+                self.characters_list_model.name == data['name'],
+                self.characters_list_model.type == data['type']
+            ).first()
+            if result:
+                master_id = result.master_id
+            self.controller.show_view(GalleryModalView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id)
 
     def receive_edited_rows_data(self, data):
         for row, name_type_data in data.items():
