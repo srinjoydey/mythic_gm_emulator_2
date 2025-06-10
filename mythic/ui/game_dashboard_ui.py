@@ -292,7 +292,6 @@ class CharactersThreadsTablesUI(QWidget):
 
     def double_click_handler(self, table_cell):
         def handler(event):
-            print(f"table_cell: {table_cell.text()}")
             if event.type() == QEvent.MouseButtonDblClick and table_cell.isReadOnly():
                 # Set all table_cells to read-only and all dropdowns to disabled
                 for le in self.scroll_widget.findChildren(QLineEdit):
