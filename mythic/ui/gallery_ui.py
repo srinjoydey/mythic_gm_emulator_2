@@ -1,15 +1,14 @@
 from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit, QFileDialog
-)
-from PySide6.QtGui import QFont, QIcon, QPixmap
+    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit, QFileDialog, QTextEdit, QToolBar, QColorDialog, QFontComboBox, QComboBox)
+from PySide6.QtGui import QFont, QIcon, QPixmap, QTextCharFormat, QTextCursor, QColor, QTextListFormat, QAction
 from PySide6.QtCore import Qt, QSize, Signal, QTimer
 import os
 import shutil
 
 
-CHARACTERS_FIELDS = ['name', 'race', 'age', 'role_profession', 'social_status', 'economic_status', 'image_path']
-PLACES_FIELDS = ['name', 'weather', 'smell', 'image_path']
-ITEMS_FIELDS = ['name', 'material', 'rarity', 'image_path']
+CHARACTERS_FIELDS = ['name', 'race', 'age', 'role_profession', 'social_status', 'economic_status', 'image_path', 'notes']
+PLACES_FIELDS = ['name', 'weather', 'smell', 'image_path', 'notes']
+ITEMS_FIELDS = ['name', 'material', 'rarity', 'image_path', 'notes']
 
 
 class GalleryModalUI(QWidget):
@@ -128,7 +127,6 @@ class GalleryModalUI(QWidget):
         self.details_layout = QVBoxLayout(self.details_section)
         self.details_layout.setContentsMargins(0, 0, 0, 0)
         self.details_layout.setSpacing(0)
-        # self.details_layout.setAlignment(Qt.AlignCenter)
         self.details_section.setStyleSheet("""
             background-color: #333;
         """) 
@@ -151,6 +149,7 @@ class GalleryModalUI(QWidget):
                 details_row.setStyleSheet("""
                     padding: 13px;
                     color: lightblue;
+                    background-color: maroon;
                 """)
                 self.details_layout.addWidget(details_row, 2)
             else:
@@ -169,21 +168,57 @@ class GalleryModalUI(QWidget):
         self.image_upload_button.setStyleSheet("""
             padding: 10px;
             color: white;
-            background-color: maroon;
+            background-color: #444;
             border-radius: 6px;
         """)
         self.image_upload_button.clicked.connect(self.open_image_file_dialog)
         self.details_layout.addWidget(self.image_upload_button)
 
-        # --- Text ---
-        self.text_layout = QLabel("Text block", content_frame)
-        self.text_layout.setAlignment(Qt.AlignCenter)
-        self.text_layout.setFont(QFont("Arial", 16))
-        self.text_layout.setStyleSheet("""
-            background-color: pink;
-            color: black;
-        """)                
-        content_layout.addWidget(self.text_layout, 3, 0, 2, 5)
+        # --- Notes ---
+        self.notes_frame = QFrame(content_frame)
+        self.notes_frame.setFrameShape(QFrame.StyledPanel)
+        self.notes_frame.setStyleSheet("background: #444; border: None;")
+        notes_layout = QVBoxLayout(self.notes_frame)
+        notes_layout.setContentsMargins(0, 0, 0, 0)
+        notes_layout.setSpacing(0)
+
+        # Notes Toolbar
+        self.notes_toolbar = QToolBar("Notes Toolbar", self.notes_frame)
+        self.notes_toolbar.setStyleSheet("""
+            QToolBar { background: #222; color: #222; border: none; }
+            QToolButton { 
+                font-size: 12px; min-width: 20px; min-height: 20px; 
+                border: none; padding: 5px; margin-right: 2px; margin-left: 2px;}
+            QComboBox, QFontComboBox {
+                font-size: 12px;
+                min-width: 65px;
+                min-height: 20px;
+                background: #fffbe6;
+                color: #222;
+                border: 1px solid #aaa;
+                padding: 5px;
+            }
+        """)      
+        
+        self.toolbar_buttons()
+
+        # Notes Edit Area
+        self.notes_edit = QTextEdit(self.notes_frame)
+        self.notes_edit.setPlaceholderText("Enter your notes here...")
+        self.notes_edit.setFont(QFont("Arial", 14))
+        self.notes_edit.setStyleSheet("background: #777; color: black; border: none;")
+        self.notes_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # self.notes_edit.textChanged.connect(self.notes_text_changed)
+        notes_layout.addWidget(self.notes_toolbar, 2)
+        notes_layout.addWidget(self.notes_edit, 3)
+
+        self.notes_scroll = QScrollArea(content_frame)
+        self.notes_scroll.setWidgetResizable(True)
+        self.notes_scroll.setWidget(self.notes_frame)
+        self.notes_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.notes_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.notes_scroll.setStyleSheet("background: transparent; border: none;")
+        content_layout.addWidget(self.notes_scroll, 3, 0, 2, 5)
 
         self.layout.addWidget(content_frame, 1, 3, 10, 10)
 
@@ -241,7 +276,7 @@ class GalleryModalUI(QWidget):
             self.image_upload_button.setText("Upload Image")
 
         for i in range(1, len(self.details_rows)):
-            if self.details_fields and i-1 < len(self.details_fields) - 1:
+            if self.details_fields and i-1 < len(self.details_fields) - 2:
                 field_name = self.details_fields[i-1]
                 label = field_name.capitalize()
                 self.details_rows[i].setPlaceholderText(label)
@@ -294,6 +329,7 @@ class GalleryModalUI(QWidget):
             self.image_upload_button.setText("Upload Image")  
 
     def details_text_changed(self, text):
+        # For handling change of placeholder to tooltip and viceversa based on presence or absence of text
         sender = self.sender()
         idx = self.details_rows.index(sender)
         if idx == 0 or not self.details_fields or idx-1 >= len(self.details_fields):
@@ -346,6 +382,85 @@ class GalleryModalUI(QWidget):
             )
             self.image_label.setPixmap(scaled)
 
+    def toolbar_buttons(self):
+        # Bold
+        bold_action = QAction("B", self.notes_toolbar)
+        bold_action.setCheckable(True)
+        bold_action.setToolTip("Bold")
+        bold_action.triggered.connect(lambda: self.notes_edit.setFontWeight(QFont.Bold if bold_action.isChecked() else QFont.Normal))
+        self.notes_toolbar.addAction(bold_action)
+        # self.notes_toolbar.setIconSize(QSize(32, 32))
+
+        # Italic
+        italic_action = QAction("I", self.notes_toolbar)
+        italic_action.setCheckable(True)
+        italic_action.setToolTip("Italic")
+        italic_action.triggered.connect(lambda: self.notes_edit.setFontItalic(italic_action.isChecked()))
+        self.notes_toolbar.addAction(italic_action)
+
+        # Underline
+        underline_action = QAction("U", self.notes_toolbar)
+        underline_action.setCheckable(True)
+        underline_action.setToolTip("Underline")
+        underline_action.triggered.connect(lambda: self.notes_edit.setFontUnderline(underline_action.isChecked()))
+        self.notes_toolbar.addAction(underline_action)
+
+        # Font family
+        font_box = QFontComboBox(self.notes_toolbar)
+        font_box.setToolTip("Select Font")
+        font_box.currentFontChanged.connect(lambda font: self.notes_edit.setCurrentFont(font))
+        self.notes_toolbar.addWidget(font_box)
+
+        # Font size
+        size_box = QComboBox(self.notes_toolbar)
+        size_box.setToolTip("Font Size")
+        for size in range(8, 30, 2):
+            size_box.addItem(str(size))
+        size_box.setCurrentText("14")
+        size_box.currentTextChanged.connect(lambda s: self.notes_edit.setFontPointSize(int(s)))
+        self.notes_toolbar.addWidget(size_box)
+
+        # Font color
+        color_action = QAction("A", self.notes_toolbar)
+        color_action.setToolTip("Font Color")
+        def set_font_color():
+            color = QColorDialog.getColor()
+            if color.isValid():
+                fmt = QTextCharFormat()
+                fmt.setForeground(color)
+                self.notes_edit.mergeCurrentCharFormat(fmt)
+        color_action.triggered.connect(set_font_color)
+        self.notes_toolbar.addAction(color_action)
+
+        # Highlight
+        highlight_action = QAction("HL", self.notes_toolbar)
+        highlight_action.setToolTip("Highlight")
+        def set_highlight_color():
+            color = QColorDialog.getColor()
+            if color.isValid():
+                fmt = QTextCharFormat()
+                fmt.setBackground(color)
+                self.notes_edit.mergeCurrentCharFormat(fmt)
+        highlight_action.triggered.connect(set_highlight_color)
+        self.notes_toolbar.addAction(highlight_action)
+
+        # Bullets
+        bullets_action = QAction("•", self.notes_toolbar)
+        bullets_action.setToolTip("Bulleted List")
+        def insert_bullets():
+            cursor = self.notes_edit.textCursor()
+            cursor.insertList(QTextListFormat.ListDisc)
+        bullets_action.triggered.connect(insert_bullets)
+        self.notes_toolbar.addAction(bullets_action)
+
+        # Numbering
+        numbering_action = QAction("1.", self.notes_toolbar)
+        numbering_action.setToolTip("Numbered List")
+        def insert_numbering():
+            cursor = self.notes_edit.textCursor()
+            cursor.insertList(QTextListFormat.ListDecimal)
+        numbering_action.triggered.connect(insert_numbering)
+        self.notes_toolbar.addAction(numbering_action)
 
     # def update_dimensions(self, width, height):
     #     """Updates font sizes and button sizes dynamically when the main window resizes."""
