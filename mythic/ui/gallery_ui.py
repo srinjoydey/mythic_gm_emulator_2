@@ -13,7 +13,8 @@ ITEMS_FIELDS = ['name', 'material', 'rarity', 'image_path', 'notes']
 
 class GalleryModalUI(QWidget):
     """A modal dialog with a left-hand vertical navigation pane and a close button row."""
-    details_data_ready = Signal(list)
+    details_data_ready = Signal(dict)
+    notes_edited = Signal(str)
     close_modal = Signal()
     image_uploaded = Signal(str)
 
@@ -25,12 +26,13 @@ class GalleryModalUI(QWidget):
         self.details_rows = []
         self.details_fields = None
         self.selected_nav_btn = None
-        self.details_data_list = []  # Will hold [nav_type, nav_id, {field: value, ...}] entries
+        self.nav_item_edited_data = {}  # Will hold [nav_type, nav_id, {field: value, ...}] entries
         self.current_nav_type = None
         self.current_nav_id = None
         self.nav_id_to_label = {}
         self.nav_btn_map = {}
         self.current_saved_image_path = None
+        self.current_notes = None
 
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setMinimumSize(600, 400)
@@ -208,7 +210,8 @@ class GalleryModalUI(QWidget):
         self.notes_edit.setFont(QFont("Arial", 14))
         self.notes_edit.setStyleSheet("background: #777; color: black; border: none;")
         self.notes_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        # self.notes_edit.textChanged.connect(self.notes_text_changed)
+        self.notes_edit.textChanged.connect(self.notes_text_changed)
+        self.current_notes = self.notes_edit
         notes_layout.addWidget(self.notes_toolbar, 2)
         notes_layout.addWidget(self.notes_edit, 3)
 
@@ -257,16 +260,18 @@ class GalleryModalUI(QWidget):
 
         self.current_nav_type = nav_type
         self.current_nav_id = nav_id
-        self.emit_details_data() 
+        self.emit_nav_item_edited_data() 
 
         # Update content area (details/image/text) as needed
         self.update_content_for_nav(nav_type, nav_id)
 
     def update_content_for_nav(self, nav_type, nav_id):
         # Fetch current data from the view/db
-        details_data = self.parent_view.get_details_data(nav_type, nav_id)
-        self.current_saved_image_path = details_data.pop('image_path', None) if details_data else None
+        details_data = self.parent_view.get_nav_item_data(nav_type, nav_id)
+
+        self.current_saved_image_path = details_data.pop('image_path', None)
         self.details_rows[0].setText(nav_type.upper()[:-1])
+        self.notes_edit.setHtml(details_data.pop('notes', ''))
 
         if self.current_saved_image_path:
             self.set_image(self.current_saved_image_path)
@@ -353,20 +358,33 @@ class GalleryModalUI(QWidget):
         field = self.details_fields[idx-1]
         value = sender.text()
         # Find or create the entry for this nav_type/nav_id
-        for entry in self.details_data_list:
-            if entry[0] == nav_type and entry[1] == nav_id:
-                entry[2][field] = value
+        for key in self.nav_item_edited_data.keys():
+            if key == nav_type + "-" + str(nav_id):
+                self.nav_item_edited_data[key][field] = value
                 break
         else:
             # Not found, create new
             entry_dict = {field: value}
-            self.details_data_list.append([nav_type, nav_id, entry_dict])
+            self.nav_item_edited_data[nav_type + "-" + str(nav_id)] = entry_dict
 
-    def emit_details_data(self):
-        self.details_data_ready.emit(self.details_data_list)
+    def notes_text_changed(self):
+        sender = self.sender()
+        key = self.current_nav_type + "-" + str(self.current_nav_id)
+        text = self.notes_edit.toHtml()
+        for key in self.nav_item_edited_data.keys():
+            if key == self.current_nav_type + "-" + str(self.current_nav_id):
+                self.nav_item_edited_data[key]["notes"] = text
+                break
+        else:
+            # Not found, create new
+            entry_dict = {"notes": text}
+            self.nav_item_edited_data[self.current_nav_type + "-" + str(self.current_nav_id)] = entry_dict      
+
+    def emit_nav_item_edited_data(self):
+        self.details_data_ready.emit(self.nav_item_edited_data)
 
     def emit_details_data_and_close(self):
-        self.emit_details_data()
+        self.emit_nav_item_edited_data()
         self.close_modal.emit()  # Emit close signal
 
     def resizeEvent(self, event):

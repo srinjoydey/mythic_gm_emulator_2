@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget
 from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapted for PySide6
-from models.master_tables import Characters, Places, Items
+from models.master_tables import Characters, Places, Items, Notes
 from models.db_config import session
  
 
@@ -124,6 +124,9 @@ class CharactersList(QWidget):
                 session.add(new_master_data)
                 session.flush()
                 new_master_data_id = new_master_data.id
+                
+                new_notes_add = Notes(type=name_type_data["type"], type_id=new_master_data_id)
+                session.add(new_notes_add)
 
                 # Update the dynamic characters list table specific to the story
                 session.query(self.characters_list_model).filter(self.characters_list_model.row == row).update({
