@@ -28,7 +28,7 @@ class GameDashboardUI(QWidget):
             self.layout.setRowStretch(i, 1)
 
         # Title Label (Centered)
-        self.title_label = QLabel("Game Dashboard", self)
+        self.title_label = QLabel(parent.story_name, self)
         self.title_label.setFont(QFont("Arial", 28))
         # Apply transparent background
         self.title_label.setStyleSheet("""

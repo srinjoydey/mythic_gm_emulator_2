@@ -220,10 +220,10 @@ class NewStoryUI(QWidget):
 
 class ExistingStoryUI(QWidget):
     """UI Layout for Main Menu with buttons and styling."""
-    def __init__(self, parent, controller, existing_stories):
+    def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
-        self.existing_sories_data = existing_stories
+        self.existing_stories_data = parent.existing_stories_data
         self.button_mapping = {}
 
         # Define background image path (now managed here)
@@ -263,7 +263,7 @@ class ExistingStoryUI(QWidget):
         from views.game_dashboard import GameDashboardView
         # Define menu buttons dynamically
         self.buttons = []
-        for index_data, story_data in self.existing_sories_data.items():
+        for index_data, story_data in self.existing_stories_data.items():
             self.buttons.append((index_data, story_data['story_name']))
         button_width, button_height = 250, 60
         button_font_size = 20

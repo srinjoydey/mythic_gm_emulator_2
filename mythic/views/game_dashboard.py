@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget
 from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapted for PySide6
-from models.master_tables import Characters, Places, Items, Notes
+from models.master_tables import StoriesIndex, Characters, Places, Items, Notes
 from models.db_config import session
  
 
@@ -12,6 +12,7 @@ class GameDashboardView(QWidget):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
+        self.story_name, self.description = session.query(StoriesIndex).filter(StoriesIndex.index == self.story_index).with_entities(StoriesIndex.name, StoriesIndex.description).first()
 
         # Attach UI with navigation logic
         self.ui = GameDashboardUI(self, controller, self.story_index)

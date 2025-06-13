@@ -107,7 +107,7 @@ class ExistingStoryView(QWidget):
             }
 
         # Attach UI with navigation logic
-        self.ui = ExistingStoryUI(self, controller, existing_stories=self.existing_stories_data)
+        self.ui = ExistingStoryUI(self, controller)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
     def update_dimensions(self, width, height):
