@@ -15,10 +15,6 @@ class MainMenu(QWidget):
         self.ui = MainMenuUI(self, controller)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
-
     def get_background_image(self):
         """Returns the background image path for this view."""
         return self.ui.bg_image_path  # UI manages background image selection
@@ -81,10 +77,6 @@ class NewStoryView(QWidget):
             # Send the index value back to the UI so it can be used in navigation
             self.ui.navigate_to_game_dashboard(first_empty_index.index)
 
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
-
     def get_background_image(self):
         """Returns the background image path for this view."""
         return self.ui.bg_image_path  # UI manages background image selection
@@ -109,10 +101,6 @@ class ExistingStoryView(QWidget):
         # Attach UI with navigation logic
         self.ui = ExistingStoryUI(self, controller)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
-
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
 
     def get_background_image(self):
         """Returns the background image path for this view."""
@@ -146,10 +134,6 @@ class OraclesTablesView(QWidget):
         else:
             self.ui.render_d100_table(nav_item, table)
 
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
-
 
 class GalleryView(QWidget):
     """Handles main menu layout & navigation."""
@@ -170,10 +154,6 @@ class GalleryView(QWidget):
         layout.addWidget(self.ui)
         layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for full expansion
 
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
-
 
 class ArtifactsView(QWidget):
     """Handles main menu layout & navigation."""
@@ -193,7 +173,3 @@ class ArtifactsView(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self.ui)
         layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for full expansion
-
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)

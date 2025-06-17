@@ -63,7 +63,7 @@ class GameDashboardUI(QWidget):
             btn = QPushButton(text, self.button_frame)
             btn.setFont(QFont("Arial", button_font_size))
             btn.setMinimumSize(button_width, button_height)
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             btn.clicked.connect(signal.emit)
             self.button_layout.addWidget(btn)
 

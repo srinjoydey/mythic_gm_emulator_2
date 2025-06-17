@@ -11,12 +11,11 @@ class MainAppWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Mythic GM Emulator")
-        self.setMinimumSize(800, 600)
-        self.resize(1366, 768)
+        self.setFixedSize(1366, 768)
 
         # Background label for displaying images
         self.bg_label = QLabel(self)
-        self.bg_label.setScaledContents(True)  # Ensure scaling
+        self.bg_label.setScaledContents(True)
 
         # Container for dynamic views
         self.container = QStackedWidget(self)
@@ -26,7 +25,16 @@ class MainAppWindow(QMainWindow):
         self.current_view = MainMenu(self.container, self)
         self.container.addWidget(self.current_view)
         self.container.setCurrentWidget(self.current_view)
-
+        # Set font and background color for tooltips throughout the app
+        self.setStyleSheet("""
+            QToolTip {
+                background-color: #666;
+                color: #fffbe6;
+                border: None;
+                font-size: 14px;
+                padding: 3px;
+            }
+        """)   
         # Set initial background from MainMenu
         self.update_background(self.current_view.get_background_image())
         initialize_db()
@@ -37,7 +45,7 @@ class MainAppWindow(QMainWindow):
             print(f"Error: {view_class} is not a valid QWidget subclass.")
             return
 
-        new_view = view_class(self.container, self, **kwargs)  # Pass only `self` as the parent
+        new_view = view_class(self.container, self, **kwargs)
         self.container.addWidget(new_view)
         self.container.setCurrentWidget(new_view)
 
@@ -59,16 +67,7 @@ class MainAppWindow(QMainWindow):
             # Convert PIL image to QPixmap without saving a temp file
             qimage = QImage(img.tobytes(), img.width, img.height, img.width * 3, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(qimage)
-
             self.bg_label.setPixmap(pixmap)
-            self.bg_label.setGeometry(self.rect())  # Adjust to window size
-        except AttributeError as e:
+            self.bg_label.setGeometry(self.rect())
+        except Exception:
             pass
-
-    def resizeEvent(self, event):
-        """Handles window resizing and updates background dynamically."""
-        if hasattr(self.current_view, "get_background_image"):
-            self.update_background(self.current_view.get_background_image())
-
-        if hasattr(self.current_view, "update_dimensions"):
-            self.current_view.update_dimensions(event.size().width(), event.size().height())

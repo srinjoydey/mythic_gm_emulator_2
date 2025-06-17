@@ -23,7 +23,7 @@ class GalleryModalUI(QWidget):
         self.parent_view = parent
         self.controller = controller
         self.nav_buttons = []
-        self.details_rows = []
+        self.details_values = []
         self.details_fields = None
         self.selected_nav_btn = None
         self.nav_item_edited_data = {}  # Will hold [nav_type, nav_id, {field: value, ...}] entries
@@ -161,9 +161,9 @@ class GalleryModalUI(QWidget):
                     color: white;
                 """)
                 self.details_layout.addWidget(details_row, 2)
-            details_row.textChanged.connect(self.details_text_changed)    
+            details_row.textChanged.connect(self.set_details_placeholders_tooltips)    
             details_row.editingFinished.connect(self.details_editing_finished)
-            self.details_rows.append(details_row)
+            self.details_values.append(details_row)
 
         self.image_upload_button = QPushButton("Upload Image", self.details_section)
         self.image_upload_button.setFont(QFont("Arial", 12))
@@ -270,7 +270,7 @@ class GalleryModalUI(QWidget):
         details_data = self.parent_view.get_nav_item_data(nav_type, nav_id)
 
         self.current_saved_image_path = details_data.pop('image_path', None)
-        self.details_rows[0].setText(nav_type.upper()[:-1])
+        self.details_values[0].setText(nav_type.upper()[:-1])
         self.notes_edit.setHtml(details_data.pop('notes', ''))
 
         if self.current_saved_image_path:
@@ -280,25 +280,21 @@ class GalleryModalUI(QWidget):
             self._original_pixmap = None
             self.image_upload_button.setText("Upload Image")
 
-        for i in range(1, len(self.details_rows)):
+        for i in range(1, len(self.details_values)):
             if self.details_fields and i-1 < len(self.details_fields) - 2:
                 field_name = self.details_fields[i-1]
                 label = field_name.capitalize()
-                self.details_rows[i].setPlaceholderText(label)
-                self.details_rows[i].setToolTip(label)
                 if field_name == "name":
                     nav_label = self.nav_id_to_label.get((nav_type, nav_id), "")
-                    self.details_rows[i].setText(nav_label)
-                    self.details_rows[i].setReadOnly(True)
+                    self.details_values[i].setText(nav_label)
+                    self.details_values[i].setReadOnly(True)
                 else:
                     # Set value from db if present, else blank
-                    self.details_rows[i].setText(details_data.get(field_name, ""))
-                    self.details_rows[i].setReadOnly(False)
+                    self.details_values[i].setText(details_data.get(field_name, ""))
+                    self.details_values[i].setReadOnly(False)
             else:
-                self.details_rows[i].setPlaceholderText("")
-                self.details_rows[i].setToolTip("")
-                self.details_rows[i].setText("")
-                self.details_rows[i].setReadOnly(False)
+                self.details_values[i].setText("")
+                self.details_values[i].setReadOnly(False)
 
     def open_image_file_dialog(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -333,24 +329,31 @@ class GalleryModalUI(QWidget):
             self._original_pixmap = None
             self.image_upload_button.setText("Upload Image")  
 
-    def details_text_changed(self, text):
+    def set_details_placeholders_tooltips(self, text):
         # For handling change of placeholder to tooltip and viceversa based on presence or absence of text
-        sender = self.sender()
-        idx = self.details_rows.index(sender)
-        if idx == 0 or not self.details_fields or idx-1 >= len(self.details_fields):
+        if not self.details_fields:
             return
-        field_name = self.details_fields[idx-1]
-        label = field_name.capitalize()
-        if text:
-            sender.setPlaceholderText("")
-            sender.setToolTip(label)
-        else:
-            sender.setPlaceholderText(label)
-            sender.setToolTip("")
+        for idx in range(len(self.details_fields) - 2):
+            # Skip the first row if your logic requires (e.g., nav_type)
+            if idx >= len(self.details_values):
+                break
+            line_edit = self.details_values[idx + 1]
+            label = self.details_fields[idx]
+            if label == "role_profession":
+                label = label.replace("_", " / ").title()
+            else:
+                label = label.replace("_", " ").title()
+            value = line_edit.text()
+            if value:
+                line_edit.setPlaceholderText("")
+                line_edit.setToolTip(label)
+            else:
+                line_edit.setPlaceholderText(label)
+                line_edit.setToolTip("")
 
     def details_editing_finished(self):
         sender = self.sender()
-        idx = self.details_rows.index(sender)
+        idx = self.details_values.index(sender)
         if idx == 0 or not self.details_fields or idx-1 >= len(self.details_fields):
             return  # Skip first row (nav_type) or out of bounds
         nav_type = self.current_nav_type
@@ -362,10 +365,10 @@ class GalleryModalUI(QWidget):
             if key == nav_type + "-" + str(nav_id):
                 self.nav_item_edited_data[key][field] = value
                 break
-        else:
-            # Not found, create new
-            entry_dict = {field: value}
-            self.nav_item_edited_data[nav_type + "-" + str(nav_id)] = entry_dict
+            else:
+                # Not found, create new
+                entry_dict = {field: value}
+                self.nav_item_edited_data[nav_type + "-" + str(nav_id)] = entry_dict
 
     def notes_text_changed(self):
         sender = self.sender()
