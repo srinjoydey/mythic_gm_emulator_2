@@ -100,7 +100,14 @@ class ExistingStoryView(QWidget):
 
         # Attach UI with navigation logic
         self.ui = ExistingStoryUI(self, controller)
+        self.ui.select_btn_clicked.connect(self.enter_game_dashboard)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
+
+    def enter_game_dashboard(self, index):
+        """Enters the game dashboard for the selected story."""
+        from views.game_dashboard import GameDashboardView
+        
+        self.controller.show_view(GameDashboardView, story_index=index)
 
     def get_background_image(self):
         """Returns the background image path for this view."""

@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout, QGridLayout, QFrame, QSizePolicy, QLineEdit, QTextEdit, QHBoxLayout, QScrollArea)
+from PySide6.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout, QGridLayout, QFrame, QSizePolicy, QLineEdit, QTextEdit, QHBoxLayout, QScrollArea, QMessageBox)
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtCore import Qt, Signal, QTimer, QSize
 from views.game_dashboard import GameDashboardView
@@ -199,6 +199,11 @@ class NewStoryUI(QWidget):
 
 class ExistingStoryUI(QWidget):
     """UI Layout for Main Menu with buttons and styling."""
+    select_btn_clicked = Signal(int)
+    edit_btn_clicked = Signal(int)
+    delete_btn_clicked = Signal(int)
+    back_btn_clicked = Signal()
+
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
@@ -227,7 +232,7 @@ class ExistingStoryUI(QWidget):
         self.title_label.setContentsMargins(75, 0, 0, 0) 
         self.layout.addWidget(self.title_label, 0, 0, 1, 4, alignment=Qt.AlignCenter)
 
-        # Button Frame (Middle Left placement)
+        # Select Button Frame (Middle Left placement)
         self.select_button_frame = QFrame(self)
         self.select_button_layout = QVBoxLayout(self.select_button_frame)
         self.select_button_layout.setContentsMargins(75, 35, 0, 0)
@@ -237,36 +242,38 @@ class ExistingStoryUI(QWidget):
         # Description Frame (Middle Right placement)
         self.description_frame = QFrame(self)
         self.description_layout = QVBoxLayout(self.description_frame)
-        self.description_layout.setContentsMargins(0, 0, 0, 0)
+        self.description_layout.setContentsMargins(50, 35, 0, 0)
         self.layout.addWidget(self.description_frame, 1, 1, 3, 3)
 
-        # Button Frame (Bottom placement)
+        # Back Button Frame (Bottom Left placement)
+        self.back_button_frame = QFrame(self)
+        self.back_button_layout = QHBoxLayout(self.back_button_frame)
+        self.back_button_layout.setContentsMargins(162, 0, 0, 0)  # Match left margin with select buttons
+        self.back_button_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.layout.addWidget(self.back_button_frame, 4, 0, 2, 1, alignment=Qt.AlignLeft)
+
+        # Action Button Frame (Bottom Right placement)
         self.action_button_frame = QFrame(self)
         self.action_button_layout = QHBoxLayout(self.action_button_frame)
-        self.action_button_layout.setContentsMargins(0, 30, 0, 0) 
-        self.layout.addWidget(self.action_button_frame, 4, 0, 2, 4)        
+        self.action_button_layout.setContentsMargins(50, 0, 0, 0)
+        self.action_button_layout.setSpacing(50)
+        self.layout.addWidget(self.action_button_frame, 4, 1, 2, 3, alignment=Qt.AlignLeft)
 
         self.create_buttons()      
 
     def create_buttons(self):
         """Creates buttons dynamically with optimized layout."""
-        from views.game_dashboard import GameDashboardView
-        # Define menu buttons dynamically
+        # Select Buttons and Descriptions
         self.select_buttons = []
-        self.select_button_descriptions = []
-        self.action_buttons = ["Select", "Edit", "Delete"]
         for index_data, story_data in self.existing_stories_data.items():
-            self.select_buttons.append((index_data, story_data['story_name']))
-            self.select_button_descriptions.append((index_data, story_data['description']))
+            self.select_buttons.append((index_data, story_data['story_name'], story_data['description']))
         select_button_width, select_button_height = 380, 65
         select_button_font_size = 18
-        action_button_width, action_button_height = 210, 45
-        action_button_font_size = 16
 
-        for index_value, story_title in self.select_buttons:
+        for index_value, story_title, story_description in self.select_buttons:
             btn = QPushButton(story_title, self.select_button_frame)
             btn.setFont(QFont("Arial", select_button_font_size))
-            btn.setMinimumSize(select_button_width, select_button_height)
+            btn.setFixedSize(select_button_width, select_button_height)
             btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             btn.setStyleSheet("""
                 QPushButton {
@@ -275,10 +282,28 @@ class ExistingStoryUI(QWidget):
             """)
             self.select_button_layout.addWidget(btn)
 
+            if story_description == None:
+                story_description = " "
+            description = QLabel(story_description, self.description_frame)
+            description.setWordWrap(True)
+            description.setFont(QFont("Arial", 14))
+            description.setFixedSize(select_button_width * 2, select_button_height)
+            description.setStyleSheet("""
+                QLabel {
+                    color: black;
+                }
+            """)
+            self.description_layout.addWidget(description)
+
             self.button_mapping[btn] = index_value
-        
+
         for btn, index_value in self.button_mapping.items():
             btn.clicked.connect(lambda checked, button=btn, index=index_value: self.highlighted_button(button, story_index=index))
+
+        # Action Buttons
+        self.action_buttons = ["Select", "Edit", "Delete"]
+        action_button_width, action_button_height = 210, 45
+        action_button_font_size = 16
 
         for label in self.action_buttons:
             btn = QPushButton(label, self.action_button_frame)
@@ -292,12 +317,12 @@ class ExistingStoryUI(QWidget):
                 self.action_button_widgets = []
             self.action_button_widgets.append(btn)
 
-            if label == "Select":
-                btn.clicked.connect(lambda checked, v=GameDashboardView: self.controller.show_view(v, story_index=self.selected_button_story_index))
-
-        # back_btn = QPushButton("Back", self.action_button_frame)
-        # back_btn.setFont(QFont("Arial", select_button_font_size))
-         
+        # Back Button
+        self.back_button = QPushButton("Back", self.back_button_frame)
+        self.back_button.setFont(QFont("Arial", action_button_font_size))
+        self.back_button.setFixedSize(action_button_width, action_button_height)
+        self.back_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.back_button_layout.addWidget(self.back_button)
 
     def highlighted_button(self, button, story_index):
         if self.selected_button:
@@ -314,7 +339,20 @@ class ExistingStoryUI(QWidget):
         self.selected_button_story_index = story_index
         # Show action buttons when a story is highlighted
         for btn in getattr(self, 'action_button_widgets', []):
-            btn.setVisible(True)        
+            btn.setVisible(True)
+        self.assign_button_actions(self.selected_button_story_index)
+
+    def assign_button_actions(self, story_index):
+        if self.action_buttons[0] == "Select":
+            self.action_button_widgets[0].clicked.connect(lambda checked, idx=story_index: self.select_btn_clicked.emit(idx))
+        if self.action_buttons[1] == "Edit":
+            self.action_button_widgets[1].clicked.connect(lambda checked, idx=story_index: self.edit_btn_clicked.emit(idx))
+        if self.action_buttons[2] == "Delete":
+            self.action_button_widgets[2].clicked.connect(lambda checked, idx=story_index: self.delete_btn_clicked.emit(idx))
+
+    def prompt_edit_story(self, story_index):
+        msg_box = QMessageBox(self)
+        
 
 
 class OraclesTablesUI(QWidget):
