@@ -36,10 +36,6 @@ class GameDashboardView(QWidget):
         from views.main_menu import MainMenu
         self.controller.show_view(MainMenu)        
 
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
-
     def get_background_image(self):
         """Returns the background image path for this view."""
         try:
@@ -137,10 +133,6 @@ class CharactersList(QWidget):
                     })
         session.commit()  # Commit once at the end
 
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
-
     def get_background_image(self):
         """Returns the background image path for this view."""
         try:
@@ -177,10 +169,6 @@ class ThreadsList(QWidget):
         for row, thread_data in data.items():
             session.query(self.threads_list_model).filter(self.threads_list_model.row == row).update({"thread": thread_data["thread"]})
             session.commit()
-
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
 
     def get_background_image(self):
         """Returns the background image path for this view."""

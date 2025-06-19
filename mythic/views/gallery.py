@@ -76,11 +76,6 @@ class GalleryModalView(QWidget):
                 data.image_path = image_path
                 session.commit()
 
-
-    # def update_dimensions(self, width, height):
-    #     """Propagate resizing logic to UI component."""
-    #     self.ui.update_dimensions(width, height)
-
     def get_background_image(self):
         """Returns the background image path for this view."""
         try:

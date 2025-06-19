@@ -482,15 +482,3 @@ class GalleryModalUI(QWidget):
             cursor.insertList(QTextListFormat.ListDecimal)
         numbering_action.triggered.connect(insert_numbering)
         self.notes_toolbar.addAction(numbering_action)
-
-    # def update_dimensions(self, width, height):
-    #     """Updates font sizes and button sizes dynamically when the main window resizes."""
-    #     title_font_size = max(20, width // 50)
-    #     self.title_label.setFont(QFont("Arial", title_font_size))
-
-    #     btn_height = max(40, min(150, int(height / 11)))
-    #     button_font_size = max(8, width // 90)
-
-    #     for btn in self.nav_buttons:
-    #         btn.setFont(QFont("Arial", button_font_size))
-    #         btn.setFixedHeight(btn_height)
