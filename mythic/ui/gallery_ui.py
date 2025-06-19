@@ -295,6 +295,8 @@ class GalleryModalUI(QWidget):
             else:
                 self.details_values[i].setText("")
                 self.details_values[i].setReadOnly(False)
+                self.details_values[i].setPlaceholderText("")
+                self.details_values[i].setToolTip("")
 
     def open_image_file_dialog(self):
         file_path, _ = QFileDialog.getOpenFileName(

@@ -1,7 +1,12 @@
-from PySide6.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout, QGridLayout, QFrame, QSizePolicy, QLineEdit, QTextEdit, QHBoxLayout, QScrollArea, QMessageBox)
+from PySide6.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout, QGridLayout, QFrame, QSizePolicy, QLineEdit, QTextEdit, QHBoxLayout, QScrollArea, QMessageBox, QDialog)
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtCore import Qt, Signal, QTimer, QSize
+from PySide6.QtCore import Qt, Signal, QTimer, QSize, Slot
 from views.game_dashboard import GameDashboardView
+import warnings
+
+
+# To suppress RuntimeWarning that arises when disconnecting signals that may not have been connected in ln 350
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 class MainMenuUI(QWidget):
@@ -200,7 +205,7 @@ class NewStoryUI(QWidget):
 class ExistingStoryUI(QWidget):
     """UI Layout for Main Menu with buttons and styling."""
     select_btn_clicked = Signal(int)
-    edit_btn_clicked = Signal(int)
+    story_name_description_edited = Signal(int, str, str)
     delete_btn_clicked = Signal(int)
     back_btn_clicked = Signal()
 
@@ -323,6 +328,7 @@ class ExistingStoryUI(QWidget):
         self.back_button.setFixedSize(action_button_width, action_button_height)
         self.back_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.back_button_layout.addWidget(self.back_button)
+        self.back_button.clicked.connect(lambda checked: self.back_btn_clicked.emit())
 
     def highlighted_button(self, button, story_index):
         if self.selected_button:
@@ -340,20 +346,118 @@ class ExistingStoryUI(QWidget):
         # Show action buttons when a story is highlighted
         for btn in getattr(self, 'action_button_widgets', []):
             btn.setVisible(True)
-        self.assign_button_actions(self.selected_button_story_index)
+        self.assign_button_actions()
 
-    def assign_button_actions(self, story_index):
+    def assign_button_actions(self):
         if self.action_buttons[0] == "Select":
-            self.action_button_widgets[0].clicked.connect(lambda checked, idx=story_index: self.select_btn_clicked.emit(idx))
+            self.action_button_widgets[0].clicked.connect(self.on_select_clicked)
         if self.action_buttons[1] == "Edit":
-            self.action_button_widgets[1].clicked.connect(lambda checked, idx=story_index: self.edit_btn_clicked.emit(idx))
+            try:
+                self.action_button_widgets[1].clicked.disconnect(self.on_edit_clicked)
+            except TypeError:
+                pass
+            self.action_button_widgets[1].clicked.connect(self.on_edit_clicked)
         if self.action_buttons[2] == "Delete":
-            self.action_button_widgets[2].clicked.connect(lambda checked, idx=story_index: self.delete_btn_clicked.emit(idx))
+            self.action_button_widgets[2].clicked.connect(self.on_delete_clicked)
+
+    @Slot()
+    def on_select_clicked(self):
+        self.select_btn_clicked.emit(self.selected_button_story_index)
+
+    @Slot()
+    def on_edit_clicked(self):
+        self.prompt_edit_story(self.selected_button_story_index)
+
+    @Slot()
+    def on_delete_clicked(self):
+        self.delete_btn_clicked.emit(self.selected_button_story_index)
 
     def prompt_edit_story(self, story_index):
-        msg_box = QMessageBox(self)
-        
+        # Get the current story data
+        story_data = self.existing_stories_data[story_index]
 
+        # Create a dialog for editing
+        dialog = QDialog(self)
+        dialog.setFixedSize(770, 380)
+        dialog.setStyleSheet("""
+            background-color: #444;
+        """)
+        dialog.setWindowTitle("Edit Story")
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(30, 15, 30, 15)  # Wider margins for the dialog
+
+        # --- Title / Label Input ---
+        title_label_widget = QLabel("Title / Label", dialog)
+        title_label_widget.setFont(QFont("Arial", 14))
+        title_label_widget.setStyleSheet("color: black; font-weight: bold;")
+        layout.addWidget(title_label_widget)
+
+        title_input = QLineEdit(dialog)
+        title_input.setFont(QFont("Arial", 13))
+        title_input.setPlaceholderText("Enter title...")
+        title_input.setText(story_data['story_name'])
+        title_input.setStyleSheet("padding: 10px; font-style: italic;")
+        title_input.setFixedWidth(700)
+        layout.addWidget(title_input)
+
+        # --- Error Label (Initially Hidden) ---
+        title_error_label = QLabel("Title is required!", dialog)
+        title_error_label.setFont(QFont("Arial", 11))
+        title_error_label.setStyleSheet("color: maroon; font-weight: bold;")
+        title_error_label.setVisible(False)
+        layout.addWidget(title_error_label)
+
+        # --- Description Input ---
+        description_label_widget = QLabel("Description", dialog)
+        description_label_widget.setFont(QFont("Arial", 14))
+        description_label_widget.setStyleSheet("color: black; font-weight: bold;")
+        layout.addWidget(description_label_widget)
+
+        description_input = QTextEdit(dialog)
+        description_input.setFont(QFont("Arial", 13))
+        description_input.setPlaceholderText("Enter description...")
+        description_input.setText(story_data['description'])
+        description_input.setStyleSheet("padding: 10px; font-style: italic;")
+        description_input.setFixedSize(700, 147)
+        layout.addWidget(description_input)
+
+        # --- Button Row (Update & Cancel) ---
+        button_row = QHBoxLayout()
+        button_row.addStretch(1)
+
+        update_btn = QPushButton("Update", dialog)
+        update_btn.setFont(QFont("Arial", 13))
+        update_btn.setFixedSize(110, 36)
+        button_row.addWidget(update_btn)
+
+        cancel_btn = QPushButton("Cancel", dialog)
+        cancel_btn.setFont(QFont("Arial", 13))
+        cancel_btn.setFixedSize(110, 36)
+        button_row.addWidget(cancel_btn)
+
+        button_row.addStretch(1)
+        layout.addLayout(button_row)
+
+        # --- Validation and Logic ---
+        def on_update():
+            title_text = title_input.text().strip()
+            description_text = description_input.toPlainText().strip()
+            if not title_text:
+                title_error_label.setVisible(True)
+                return
+            title_error_label.setVisible(False)
+            # Update the story data
+            dialog.accept()
+            self.story_name_description_edited.emit(story_index, title_text, description_text)
+
+        update_btn.clicked.connect(on_update)
+        cancel_btn.clicked.connect(dialog.reject)
+
+        dialog.setLayout(layout)
+
+        if dialog.exec():
+            # Optionally refresh your UI here
+            pass
 
 class OraclesTablesUI(QWidget):
     """A fullscreen view with a left-hand vertical navigation pane and a close button row."""
@@ -703,14 +807,3 @@ class ArtifactsUI(QWidget):
             btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             btn.clicked.connect(lambda checked, v=view: self.controller.show_view(v))
             self.button_layout.addWidget(btn)
-
-    def update_dimensions(self, width, height):
-        """Updates font sizes dynamically when the main window resizes."""
-        font_size = max(20, int(width / 50))
-        self.title_label.setFont(QFont("Arial", font_size))
-
-        button_font_size = max(8, int(width / 80))
-        for btn in self.button_frame.findChildren(QPushButton):
-            btn.setFont(QFont("Arial", button_font_size))
-            btn.setMinimumSize(int(width / 6), int(height / 12))
-

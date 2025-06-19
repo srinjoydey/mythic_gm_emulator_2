@@ -122,7 +122,7 @@ class CharactersList(QWidget):
                 session.flush()
                 new_master_data_id = new_master_data.id
                 
-                new_notes_add = Notes(type=name_type_data["type"], type_id=new_master_data_id)
+                new_notes_add = Notes(type=name_type_data["type"], type_id=new_master_data_id, story_index=self.story_index)
                 session.add(new_notes_add)
 
                 # Update the dynamic characters list table specific to the story
