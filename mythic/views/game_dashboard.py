@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget
 from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapted for PySide6
-from models.master_tables import Characters, Places, Items
+from models.master_tables import StoriesIndex, Characters, Places, Items, Notes
 from models.db_config import session
  
 
@@ -12,6 +12,7 @@ class GameDashboardView(QWidget):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
+        self.story_name, self.description = session.query(StoriesIndex).filter(StoriesIndex.index == self.story_index).with_entities(StoriesIndex.name, StoriesIndex.description).first()
 
         # Attach UI with navigation logic
         self.ui = GameDashboardUI(self, controller, self.story_index)
@@ -34,10 +35,6 @@ class GameDashboardView(QWidget):
     def navigate_to_main_menu(self):
         from views.main_menu import MainMenu
         self.controller.show_view(MainMenu)        
-
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
 
     def get_background_image(self):
         """Returns the background image path for this view."""
@@ -79,16 +76,15 @@ class CharactersList(QWidget):
 
     def receive_clicked_row_data(self, data):
         from views.gallery import GalleryModalView
-
-        print(f"Received clicked row data: {data}")
-        result = session.query(self.characters_list_model).filter(
-            self.characters_list_model.row == data['row_index'],
-            self.characters_list_model.name == data['name'],
-            self.characters_list_model.type == data['type']
-        ).first()
-        if result:
-            master_id = result.master_id
-        self.controller.show_view(GalleryModalView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id)
+        if data['name']:
+            result = session.query(self.characters_list_model).filter(
+                self.characters_list_model.row == data['row_index'],
+                self.characters_list_model.name == data['name'],
+                self.characters_list_model.type == data['type']
+            ).first()
+            if result:
+                master_id = result.master_id
+            self.controller.show_view(GalleryModalView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id)
 
     def receive_edited_rows_data(self, data):
         for row, name_type_data in data.items():
@@ -125,6 +121,9 @@ class CharactersList(QWidget):
                 session.add(new_master_data)
                 session.flush()
                 new_master_data_id = new_master_data.id
+                
+                new_notes_add = Notes(type=name_type_data["type"], type_id=new_master_data_id, story_index=self.story_index)
+                session.add(new_notes_add)
 
                 # Update the dynamic characters list table specific to the story
                 session.query(self.characters_list_model).filter(self.characters_list_model.row == row).update({
@@ -133,10 +132,6 @@ class CharactersList(QWidget):
                     "master_id": new_master_data_id
                     })
         session.commit()  # Commit once at the end
-
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
 
     def get_background_image(self):
         """Returns the background image path for this view."""
@@ -174,10 +169,6 @@ class ThreadsList(QWidget):
         for row, thread_data in data.items():
             session.query(self.threads_list_model).filter(self.threads_list_model.row == row).update({"thread": thread_data["thread"]})
             session.commit()
-
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
 
     def get_background_image(self):
         """Returns the background image path for this view."""

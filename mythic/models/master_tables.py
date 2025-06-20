@@ -74,6 +74,7 @@ class Notes(Base):
     id = Column(Integer, primary_key=True)
     type = Column(String, nullable=True)
     type_id = Column(Integer, nullable=True)
+    story_index = Column(Integer, nullable=True)
     active = Column(Boolean, default=True)
     notes = Column(Text, nullable=True)
     created_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST))

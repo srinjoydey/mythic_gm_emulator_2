@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QWidget
 from ui.gallery_ui import GalleryModalUI
 from models.db_config import session
-from models.master_tables import Characters, Places, Items
+from models.master_tables import Characters, Places, Items, Notes
 
 
 MODEL_MAP = {"characters": Characters, "places": Places, "items": Items}
@@ -27,7 +27,7 @@ class GalleryModalView(QWidget):
 
         # Attach UI with navigation logic
         self.ui = GalleryModalUI(self, controller, characters_nav_bar_list, first_nav_type=first_nav_type, first_nav_id=first_nav_id)
-        self.ui.details_data_ready.connect(self.receive_details_data)
+        self.ui.details_data_ready.connect(self.post_edited_nav_items_data)
         self.ui.close_modal.connect(self.navigate_to_game_dashboard)
         self.ui.image_uploaded.connect(self.save_uploaded_image)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
@@ -36,21 +36,34 @@ class GalleryModalView(QWidget):
         from views.game_dashboard import GameDashboardView
         self.controller.show_view(GameDashboardView, story_index=self.story_index)
 
-    def receive_details_data(self, details_data_list):
-        if details_data_list:
-            model = MODEL_MAP[details_data_list[0][0]]
-            data = session.query(model).filter(model.id == details_data_list[0][1]).first()
-            if data:
-                for field, value in details_data_list[0][2].items():
-                    setattr(data, field, value)
-                session.commit()
+    def post_edited_nav_items_data(self, details_data_dict):
+        if details_data_dict:
+            for key, value in details_data_dict.items():
+                model_type, model_id = key.split("-")
+                model = MODEL_MAP[model_type]
+                data = session.query(model).filter(model.id == model_id).first()
+                notes_edited_data = value.pop("notes", None)
+                if data:
+                    for data_field, data_value in value.items():
+                        setattr(data, data_field, data_value)
 
-    def get_details_data(self, nav_type, nav_id):
+                    if notes_edited_data:
+                        model_type = model_type[:-1]
+                        notes_data = session.query(Notes).filter(Notes.type == model_type, Notes.type_id == model_id).first()
+                        notes_data.notes = notes_edited_data
+                        
+                    session.commit()
+
+    def get_nav_item_data(self, nav_type, nav_id):
         model = MODEL_MAP[nav_type]
         data = session.query(model).filter(model.id == nav_id).first()
+        nav_type = nav_type[:-1]
+        related_notes = session.query(Notes).filter(Notes.type == nav_type, Notes.type_id == nav_id).first()
         if data:
             # Return a dict of all fields
             data = {field: getattr(data, field, "") for field in self.ui.details_fields or []}
+            if related_notes:
+                data["notes"] = related_notes.notes
             return data
         return {}
     
@@ -62,11 +75,6 @@ class GalleryModalView(QWidget):
             if data:
                 data.image_path = image_path
                 session.commit()
-
-
-    # def update_dimensions(self, width, height):
-    #     """Propagate resizing logic to UI component."""
-    #     self.ui.update_dimensions(width, height)
 
     def get_background_image(self):
         """Returns the background image path for this view."""

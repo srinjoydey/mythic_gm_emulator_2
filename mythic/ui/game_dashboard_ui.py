@@ -28,7 +28,7 @@ class GameDashboardUI(QWidget):
             self.layout.setRowStretch(i, 1)
 
         # Title Label (Centered)
-        self.title_label = QLabel("Game Dashboard", self)
+        self.title_label = QLabel(parent.story_name, self)
         self.title_label.setFont(QFont("Arial", 28))
         # Apply transparent background
         self.title_label.setStyleSheet("""
@@ -63,19 +63,9 @@ class GameDashboardUI(QWidget):
             btn = QPushButton(text, self.button_frame)
             btn.setFont(QFont("Arial", button_font_size))
             btn.setMinimumSize(button_width, button_height)
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             btn.clicked.connect(signal.emit)
             self.button_layout.addWidget(btn)
-
-    def update_dimensions(self, width, height):
-        """Updates font sizes dynamically when the main window resizes."""
-        font_size = max(20, int(width / 50))
-        self.title_label.setFont(QFont("Arial", font_size))
-
-        button_font_size = max(8, int(width / 80))
-        for btn in self.button_frame.findChildren(QPushButton):
-            btn.setFont(QFont("Arial", button_font_size))
-            btn.setMinimumSize(int(width / 6), int(height / 12))
 
 
 class ClickableLabel(QLabel):
@@ -292,7 +282,6 @@ class CharactersThreadsTablesUI(QWidget):
 
     def double_click_handler(self, table_cell):
         def handler(event):
-            print(f"table_cell: {table_cell.text()}")
             if event.type() == QEvent.MouseButtonDblClick and table_cell.isReadOnly():
                 # Set all table_cells to read-only and all dropdowns to disabled
                 for le in self.scroll_widget.findChildren(QLineEdit):
