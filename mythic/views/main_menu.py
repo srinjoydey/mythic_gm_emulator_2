@@ -2,6 +2,11 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout
 from ui.main_menu_ui import MainMenuUI
 from models.db_config import session, engine
 from sqlalchemy import inspect
+from utils.static_data.tables_index import TABLES_INDEX
+from models.master_tables import StoriesIndex, Characters, Places, Items, Notes, Threads
+from models.story_tables import create_dynamic_model, CharactersList as CharactersListModel, ThreadsList as ThreadsListModel
+import os
+import glob
 
 
 class MainMenu(QWidget):
@@ -13,10 +18,6 @@ class MainMenu(QWidget):
         # Attach UI with navigation logic
         self.ui = MainMenuUI(self, controller)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
-
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
 
     def get_background_image(self):
         """Returns the background image path for this view."""
@@ -80,10 +81,6 @@ class NewStoryView(QWidget):
             # Send the index value back to the UI so it can be used in navigation
             self.ui.navigate_to_game_dashboard(first_empty_index.index)
 
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
-
     def get_background_image(self):
         """Returns the background image path for this view."""
         return self.ui.bg_image_path  # UI manages background image selection
@@ -106,12 +103,63 @@ class ExistingStoryView(QWidget):
             }
 
         # Attach UI with navigation logic
-        self.ui = ExistingStoryUI(self, controller, existing_stories=self.existing_stories_data)
+        self.ui = ExistingStoryUI(self, controller)
+        self.ui.select_btn_clicked.connect(self.enter_game_dashboard)
+        self.ui.story_name_description_edited.connect(self.update_story_details)
+        self.ui.delete_btn_clicked.connect(self.delete_story)
+        self.ui.back_btn_clicked.connect(lambda: self.controller.show_view(MainMenu))
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
+    def enter_game_dashboard(self, index):
+        """Enters the game dashboard for the selected story."""
+        from views.game_dashboard import GameDashboardView
+        
+        self.controller.show_view(GameDashboardView, story_index=index)
+
+    def update_story_details(self, index, new_name, new_description):
+        """Updates the story details in the existing stories data."""
+        session.query(StoriesIndex).filter(StoriesIndex.index == index).update({
+            StoriesIndex.name: new_name,
+            StoriesIndex.description: new_description
+        })
+        session.commit()
+        self.controller.show_view(ExistingStoryView)
+
+    def delete_story(self, index):
+        """Deletes the selected story."""
+        characters_table_name = str(index) + "_characters_list"
+        threads_table_name = str(index) + "_threads_list"
+
+        characters_list_model = create_dynamic_model(CharactersListModel, characters_table_name)
+        threads_list_model = create_dynamic_model(ThreadsListModel, threads_table_name)
+        # Clear slot from stories index and remove all story records from master tables
+        session.query(StoriesIndex).filter(StoriesIndex.index == index).update({
+            StoriesIndex.name: None,
+            StoriesIndex.description: None,
+            StoriesIndex.created_date: None,
+            StoriesIndex.modified_date: None
+        })
+        session.query(Characters).filter(Characters.story_index == index).delete()
+        session.query(Places).filter(Places.story_index == index).delete()
+        session.query(Items).filter(Items.story_index == index).delete()
+        session.query(Threads).filter(Threads.story_index == index).delete()
+        session.query(Notes).filter(Notes.story_index == index).delete()
+        session.commit()
+        session.close()
+        # Remove all images for that story
+        folders = ["visuals/characters", "visuals/items", "visuals/places", "visuals/threads"]
+        for folder in folders:
+            pattern = os.path.join(folder, f"{index}_*")
+            for file_path in glob.glob(pattern):
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    print(f"Failed to remove {file_path}: {e}")
+        # Drop the story-specific tables
+        characters_list_model.__table__.drop(engine)
+        threads_list_model.__table__.drop(engine)
+
+        self.controller.show_view(ExistingStoryView)
 
     def get_background_image(self):
         """Returns the background image path for this view."""
@@ -121,6 +169,7 @@ class ExistingStoryView(QWidget):
 class OraclesTablesView(QWidget):
     """Handles main menu layout & navigation."""
     def __init__(self, parent, controller):
+        # from ui.main_menu_ui import OraclesTablesUI
         from ui.main_menu_ui import OraclesTablesUI
 
         super().__init__(parent)
@@ -130,16 +179,19 @@ class OraclesTablesView(QWidget):
         self.bg_image_path = "assets/page1_bg.jpg"
 
         # Attach UI with navigation logic
-        self.ui = OraclesTablesUI(self, controller)
-
+        self.ui = OraclesTablesUI(self, controller, list(TABLES_INDEX.keys()))
+        self.ui.nav_item_selected.connect(self.get_table_data)
         # Layout to ensure proper expansion
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.ui)
-        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for full expansion
+        self.setLayout(self.ui.layout)
 
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
+    def get_table_data(self, nav_item):
+        table = TABLES_INDEX.get(nav_item)
+        if nav_item == "Fate Chart":
+            self.ui.render_fate_chart(nav_item, table)
+        elif nav_item == "Random Event Focus Table":
+            self.ui.render_random_event_focus_table(nav_item, table)
+        else:
+            self.ui.render_d100_table(nav_item, table)
 
 
 class GalleryView(QWidget):
@@ -161,10 +213,6 @@ class GalleryView(QWidget):
         layout.addWidget(self.ui)
         layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for full expansion
 
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
-
 
 class ArtifactsView(QWidget):
     """Handles main menu layout & navigation."""
@@ -184,7 +232,3 @@ class ArtifactsView(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self.ui)
         layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for full expansion
-
-    def update_dimensions(self, width, height):
-        """Propagate resizing logic to UI component."""
-        self.ui.update_dimensions(width, height)
