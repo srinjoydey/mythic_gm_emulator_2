@@ -11,17 +11,18 @@ PLACES_FIELDS = ['name', 'weather', 'smell', 'image_path', 'notes']
 ITEMS_FIELDS = ['name', 'material', 'rarity', 'image_path', 'notes']
 
 
-class GalleryModalUI(QWidget):
+class GalleryUI(QWidget):
     """A modal dialog with a left-hand vertical navigation pane and a close button row."""
     details_data_ready = Signal(dict)
     notes_edited = Signal(str)
-    close_modal = Signal()
+    close_gallery = Signal(str)
     image_uploaded = Signal(str)
 
-    def __init__(self, parent, controller, nav_items, first_nav_type=None, first_nav_id=None):
+    def __init__(self, parent, controller, nav_items, first_nav_type, first_nav_id, prev_view):
         super().__init__(parent)
         self.parent_view = parent
         self.controller = controller
+        self.prev_view = prev_view
         self.nav_buttons = []
         self.details_values = []
         self.details_fields = None
@@ -33,18 +34,31 @@ class GalleryModalUI(QWidget):
         self.nav_btn_map = {}
         self.current_saved_image_path = None
         self.current_notes = None
+        if prev_view in ('game dashboard', 'characters list'):
+            self.modal = True
+        else:
+            self.modal = False
 
-        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        self.setMinimumSize(600, 400)
+        if self.modal:
+            self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+            self.setAttribute(Qt.WA_DeleteOnClose, True)
 
         # Main grid layout
         self.layout = QGridLayout(self)
-        self.layout.setContentsMargins(50, 20, 50, 50)
+        if self.modal:
+            self.layout.setContentsMargins(50, 20, 50, 50)
+        else:
+            self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
 
         # --- Top Row: Title and Close Button ---
-        close_row_container = QWidget(self)
-        close_row_container.setStyleSheet("background-color: transparent;")
+        close_row_container = QFrame(self)
+        if self.modal:
+            close_row_container.setStyleSheet("background-color: transparent;")
+        else:
+            close_row_container.setStyleSheet("""
+                background-color: #222;
+            """)
 
         self.title_label = QLabel("Gallery", close_row_container)
         self.title_label.setFont(QFont("Arial", 28))
@@ -55,16 +69,23 @@ class GalleryModalUI(QWidget):
             font-weight: bold;
             font-style: italic;
         """)
-
-        close_button = QPushButton(close_row_container)
-        close_button.setIcon(QIcon("assets/icons/close_icon.png"))
-        close_button.setIconSize(QSize(25, 25))
-        close_button.setFont(QFont("Arial", 14, QFont.Bold))
-        close_button.setStyleSheet("""
-            padding: 0px;
-            background-color: white;
-            color: maroon;
-        """)
+        if self.modal:
+            close_button = QPushButton(close_row_container)
+            close_button.setIcon(QIcon("assets/icons/close_icon.png"))
+            close_button.setIconSize(QSize(25, 25))
+            close_button.setFont(QFont("Arial", 14, QFont.Bold))
+            close_button.setStyleSheet("""
+                padding: 0px;
+                background-color: white;
+                color: maroon;
+            """)
+        else:
+            close_button = QPushButton("Main Menu", close_row_container)
+            close_button.setFont(QFont("Arial", 14, QFont.Bold))
+            close_button.setStyleSheet("""
+                padding: 10px;
+                color: white;
+            """)
         close_button.clicked.connect(self.emit_details_data_and_close)
 
         close_row_layout = QHBoxLayout(close_row_container)
@@ -106,7 +127,10 @@ class GalleryModalUI(QWidget):
         # --- Right Content Area ---
         content_frame = QFrame(self)
         content_layout = QGridLayout(content_frame)
-        content_layout.setContentsMargins(10, 0, 0, 0)
+        if self.modal:
+            content_layout.setContentsMargins(10, 0, 0, 0)
+        else:
+            content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
 
         # --- Image ---
@@ -390,7 +414,7 @@ class GalleryModalUI(QWidget):
 
     def emit_details_data_and_close(self):
         self.emit_nav_item_edited_data()
-        self.close_modal.emit()  # Emit close signal
+        self.close_gallery.emit(self.prev_view)  # Emit close signal
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

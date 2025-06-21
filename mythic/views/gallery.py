@@ -1,15 +1,15 @@
 from PySide6.QtWidgets import QWidget
-from ui.gallery_ui import GalleryModalUI
+from ui.gallery_ui import GalleryUI
 from models.db_config import session
 from models.master_tables import Characters, Places, Items, Notes
 
 
 MODEL_MAP = {"characters": Characters, "places": Places, "items": Items}
 
-class GalleryModalView(QWidget):
+class GalleryView(QWidget):
     """Handles main menu logic & navigation."""
 
-    def __init__(self, parent, controller, story_index=None, first_nav_type=None, first_nav_id=None):
+    def __init__(self, parent, controller, story_index=None, first_nav_type=None, first_nav_id=None, prev_view=None):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
@@ -26,15 +26,22 @@ class GalleryModalView(QWidget):
         characters_nav_bar_list = sorted(characters_list + places_list + items_list, key=lambda x: x[2])
 
         # Attach UI with navigation logic
-        self.ui = GalleryModalUI(self, controller, characters_nav_bar_list, first_nav_type=first_nav_type, first_nav_id=first_nav_id)
+        self.ui = GalleryUI(self, controller, characters_nav_bar_list, first_nav_type=first_nav_type, first_nav_id=first_nav_id, prev_view=prev_view)
         self.ui.details_data_ready.connect(self.post_edited_nav_items_data)
-        self.ui.close_modal.connect(self.navigate_to_game_dashboard)
+        self.ui.close_gallery.connect(self.navigate_to_previous_view)
         self.ui.image_uploaded.connect(self.save_uploaded_image)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
-    def navigate_to_game_dashboard(self):
-        from views.game_dashboard import GameDashboardView
-        self.controller.show_view(GameDashboardView, story_index=self.story_index)
+    def navigate_to_previous_view(self, prev_view):
+        if prev_view == 'main menu':
+            from views.main_menu import MainMenu
+            self.controller.show_view(MainMenu)
+        elif prev_view == 'game dashboard':
+            from views.game_dashboard import GameDashboardView
+            self.controller.show_view(GameDashboardView, story_index=self.story_index)
+        elif prev_view == 'characters list':
+            from views.game_dashboard import CharactersList
+            self.controller.show_view(CharactersList, story_index=self.story_index)
 
     def post_edited_nav_items_data(self, details_data_dict):
         if details_data_dict:

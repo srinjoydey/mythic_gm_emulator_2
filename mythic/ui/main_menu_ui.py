@@ -11,6 +11,12 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 class MainMenuUI(QWidget):
     """UI Layout for Main Menu with buttons and styling."""
+    new_story_btn_clicked = Signal()
+    existing_story_btn_clicked = Signal()
+    oracles_tables_btn_clicked = Signal()
+    gallery_btn_clicked = Signal()
+    artifacts_btn_clicked = Signal()
+
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
@@ -49,25 +55,23 @@ class MainMenuUI(QWidget):
 
     def create_buttons(self):
         """Creates buttons dynamically with optimized layout."""
-        from views.main_menu import NewStoryView, ExistingStoryView, OraclesTablesView, GalleryView, ArtifactsView
-
         # Define menu buttons dynamically
         self.buttons = [
-            ("New Story", NewStoryView),
-            ("Existing Story", ExistingStoryView),
-            ("Oracles / Tables", OraclesTablesView),
-            ("Gallery", GalleryView),
-            ("Artifacts", ArtifactsView),
-        ]        
+            ("New Story", self.new_story_btn_clicked),
+            ("Existing Story", self.existing_story_btn_clicked),
+            ("Oracles / Tables", self.oracles_tables_btn_clicked),
+            ("Gallery", self.gallery_btn_clicked),
+            ("Artifacts", self.artifacts_btn_clicked),
+        ]
         button_width, button_height = 250, 60
         button_font_size = 20
 
-        for text, view in self.buttons:
+        for text, signal in self.buttons:
             btn = QPushButton(text, self.button_frame)
             btn.setFont(QFont("Arial", button_font_size))
             btn.setMinimumSize(button_width, button_height)
             btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            btn.clicked.connect(lambda checked, v=view: self.controller.show_view(v))
+            btn.clicked.connect(signal)
             self.button_layout.addWidget(btn)
 
 

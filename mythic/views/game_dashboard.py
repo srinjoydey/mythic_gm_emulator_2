@@ -29,8 +29,8 @@ class GameDashboardView(QWidget):
         self.controller.show_view(ThreadsList, story_index=story_index)
 
     def navigate_to_gallery_modal(self, story_index):
-        from views.gallery import GalleryModalView     
-        self.controller.show_view(GalleryModalView, story_index=story_index)
+        from views.gallery import GalleryView     
+        self.controller.show_view(GalleryView, story_index=story_index, prev_view='game dashboard')
 
     def navigate_to_main_menu(self):
         from views.main_menu import MainMenu
@@ -75,7 +75,7 @@ class CharactersList(QWidget):
         print(f"Current typed data in row {current_typed_data_dict['row']} is {current_typed_data_dict['data']}")
 
     def receive_clicked_row_data(self, data):
-        from views.gallery import GalleryModalView
+        from views.gallery import GalleryView
         if data['name']:
             result = session.query(self.characters_list_model).filter(
                 self.characters_list_model.row == data['row_index'],
@@ -84,7 +84,7 @@ class CharactersList(QWidget):
             ).first()
             if result:
                 master_id = result.master_id
-            self.controller.show_view(GalleryModalView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id)
+            self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id, prev_view='characters list')
 
     def receive_edited_rows_data(self, data):
         for row, name_type_data in data.items():

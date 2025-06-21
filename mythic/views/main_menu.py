@@ -17,7 +17,16 @@ class MainMenu(QWidget):
 
         # Attach UI with navigation logic
         self.ui = MainMenuUI(self, controller)
+        self.ui.new_story_btn_clicked.connect(lambda: self.controller.show_view(NewStoryView))
+        self.ui.existing_story_btn_clicked.connect(lambda: self.controller.show_view(ExistingStoryView))
+        self.ui.oracles_tables_btn_clicked.connect(lambda: self.controller.show_view(OraclesTablesView))
+        self.ui.gallery_btn_clicked.connect(self.get_full_gallery)
+        self.ui.artifacts_btn_clicked.connect(lambda: self.controller.show_view(ArtifactsView))
         self.setLayout(self.ui.layout)  # Use UI's layout directly
+
+    def get_full_gallery(self):
+        from views.gallery import GalleryView
+        self.controller.show_view(GalleryView, prev_view="main menu")
 
     def get_background_image(self):
         """Returns the background image path for this view."""
@@ -192,26 +201,6 @@ class OraclesTablesView(QWidget):
             self.ui.render_random_event_focus_table(nav_item, table)
         else:
             self.ui.render_d100_table(nav_item, table)
-
-
-class GalleryView(QWidget):
-    """Handles main menu layout & navigation."""
-    def __init__(self, parent, controller):
-        from ui.main_menu_ui import GalleryUI
-
-        super().__init__(parent)
-        self.controller = controller
-
-        # Define background image path (handled by MainAppWindow)
-        self.bg_image_path = "assets/page1_bg.jpg"
-
-        # Attach UI with navigation logic
-        self.ui = GalleryUI(self, controller)
-
-        # Layout to ensure proper expansion
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.ui)
-        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for full expansion
 
 
 class ArtifactsView(QWidget):
