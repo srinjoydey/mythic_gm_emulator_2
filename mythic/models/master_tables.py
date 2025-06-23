@@ -12,6 +12,7 @@ class StoriesIndex(Base):
     index = Column(Integer, primary_key=True)
     name = Column(String, nullable=True)
     description = Column(Text, nullable=True)
+    # chaos_factor = Column(Integer, nullable=True)
     created_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST))
     modified_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST), onupdate=lambda: datetime.now().replace(tzinfo=IST))
 

@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QWidget
 from ui.gallery_ui import GalleryUI
 from models.db_config import session
-from models.master_tables import Characters, Places, Items, Notes
+from models.master_tables import StoriesIndex, Characters, Places, Items, Notes
 
 
 MODEL_MAP = {"characters": Characters, "places": Places, "items": Items}
@@ -13,20 +13,23 @@ class GalleryView(QWidget):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
+        existing_stories = {}
 
         if self.story_index is None:
-            characters_list = [('characters', id, name) for id, name in session.query(Characters).with_entities(Characters.id, Characters.name).all()]
-            places_list = [('places', id, name) for id, name in session.query(Places).with_entities(Places.id, Places.name).all()]
-            items_list = [('items', id, name) for id, name in session.query(Items).with_entities(Items.id, Items.name).all()]
+            existing_stories = {story.index: story.name for story in session.query(StoriesIndex).all()}
+            characters_list = [('characters', story_index, id, name) for story_index, id, name in session.query(Characters).with_entities(Characters.story_index, Characters.id, Characters.name).all()]
+            places_list = [('places', story_index, id, name) for story_index, id, name in session.query(Places).with_entities(Places.story_index, Places.id, Places.name).all()]
+            items_list = [('items', story_index, id, name) for story_index, id, name in session.query(Items).with_entities(Items.story_index, Items.id, Items.name).all()]
         else:
             characters_list = [('characters', id, name) for id, name in session.query(Characters).with_entities(Characters.id, Characters.name).filter(Characters.story_index == self.story_index, Characters.active == True).all()]
             places_list = [('places', id, name) for id, name in session.query(Places).with_entities(Places.id, Places.name).filter(Places.story_index == self.story_index, Places.active == True).all()]
             items_list = [('items', id, name) for id, name in session.query(Items).with_entities(Items.id, Items.name).filter(Items.story_index == self.story_index, Items.active == True).all()]
 
-        characters_nav_bar_list = sorted(characters_list + places_list + items_list, key=lambda x: x[2])
+        self.nav_bar_list = sorted(characters_list + places_list + items_list, key=lambda x: x[2])
 
         # Attach UI with navigation logic
-        self.ui = GalleryUI(self, controller, characters_nav_bar_list, first_nav_type=first_nav_type, first_nav_id=first_nav_id, prev_view=prev_view)
+        self.ui = GalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_type=first_nav_type, first_nav_id=first_nav_id, prev_view=prev_view)
+        self.ui.search_options_changed.connect(self.search_nav_items)
         self.ui.details_data_ready.connect(self.post_edited_nav_items_data)
         self.ui.close_gallery.connect(self.navigate_to_previous_view)
         self.ui.image_uploaded.connect(self.save_uploaded_image)
@@ -73,6 +76,11 @@ class GalleryView(QWidget):
                 data["notes"] = related_notes.notes
             return data
         return {}
+    
+    def search_nav_items(self, radio1_val, radio2_val, checkboxes, story_checkboxes):
+        # self.last_search_options = (radio1_val, radio2_val, checkboxes, story_checkboxes)
+        print(f"Sort: {radio1_val}, Show: {radio2_val}, Categories: {checkboxes}, Stories: {story_checkboxes}")
+
     
     def save_uploaded_image(self, image_path):
         """Saves the uploaded image path to the database."""
