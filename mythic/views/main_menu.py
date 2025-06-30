@@ -18,11 +18,20 @@ class MainMenu(QWidget):
         # Attach UI with navigation logic
         self.ui = MainMenuUI(self, controller)
         self.ui.new_story_btn_clicked.connect(lambda: self.controller.show_view(NewStoryView))
-        self.ui.existing_story_btn_clicked.connect(lambda: self.controller.show_view(ExistingStoryView))
+        self.ui.existing_story_btn_clicked.connect(self.handle_existing_story_btn)
         self.ui.oracles_tables_btn_clicked.connect(lambda: self.controller.show_view(OraclesTablesView))
         self.ui.gallery_btn_clicked.connect(self.get_full_gallery)
         self.ui.artifacts_btn_clicked.connect(lambda: self.controller.show_view(ArtifactsView))
         self.setLayout(self.ui.layout)  # Use UI's layout directly
+
+    def handle_existing_story_btn(self):
+        from models.master_tables import StoriesIndex
+
+        all_stories = session.query(StoriesIndex).all()
+        if not all_stories or all(story.name is None for story in all_stories):
+            self.ui.show_message_under_existing_btn("No stories found. Please create a New Story.")
+        else:
+            self.controller.show_view(ExistingStoryView, all_stories=all_stories)
 
     def get_full_gallery(self):
         from views.gallery import GalleryView
@@ -97,13 +106,12 @@ class NewStoryView(QWidget):
 
 class ExistingStoryView(QWidget):
     """Handles existing story loading or deletion logic & navigation."""
-    def __init__(self, parent, controller):
+    def __init__(self, parent, controller, all_stories):
         from ui.main_menu_ui import ExistingStoryUI
-        from models.master_tables import StoriesIndex
 
         super().__init__(parent)
         self.controller = controller
-        self.all_stories = session.query(StoriesIndex).all()
+        self.all_stories = all_stories
         self.existing_stories_data = {}
         for story in self.all_stories:
             self.existing_stories_data[story.index] = {
@@ -168,7 +176,7 @@ class ExistingStoryView(QWidget):
         characters_list_model.__table__.drop(engine)
         threads_list_model.__table__.drop(engine)
 
-        self.controller.show_view(ExistingStoryView)
+        self.controller.show_view(ExistingStoryView, all_stories=self.all_stories)
 
     def get_background_image(self):
         """Returns the background image path for this view."""

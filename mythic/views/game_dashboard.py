@@ -12,7 +12,17 @@ class GameDashboardView(QWidget):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
-        self.story_name, self.description = session.query(StoriesIndex).filter(StoriesIndex.index == self.story_index).with_entities(StoriesIndex.name, StoriesIndex.description).first()
+        # Fetch story data
+        story = session.query(StoriesIndex).filter(StoriesIndex.index == self.story_index).first()
+        self.story_name = story.name
+        self.description = story.description
+        self.chaos_factor = story.chaos_factor
+
+        # If chaos_factor is None, set to 5 and save to db immediately
+        if self.chaos_factor is None:
+            self.chaos_factor = 5
+            story.chaos_factor = 5
+            session.flush()
 
         # Attach UI with navigation logic
         self.ui = GameDashboardUI(self, controller, self.story_index)

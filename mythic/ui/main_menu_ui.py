@@ -28,10 +28,6 @@ class MainMenuUI(QWidget):
         self.layout = QGridLayout(self)
         self.layout.setSpacing(10)
 
-        for i in range(5):
-            self.layout.setColumnStretch(i, 1)
-            self.layout.setRowStretch(i, 1)
-
         # Title Label (Centered)
         self.title_label = QLabel("Mythic GM Emulator", self)
         self.title_label.setFont(QFont("Arial", 28))
@@ -43,13 +39,17 @@ class MainMenuUI(QWidget):
             font-weight: bold;
             font-style: italic;            
         """)
-        self.layout.addWidget(self.title_label, 1, 1, 1, 1)
+        self.title_label.setContentsMargins(125, 0, 0, 0) 
+        self.layout.addWidget(self.title_label, 1, 1, 1, 2, alignment=Qt.AlignCenter)
 
         # Button Frame (Bottom-right placement)
         self.button_frame = QFrame(self)
         self.button_layout = QVBoxLayout(self.button_frame)
-        self.button_layout.setContentsMargins(0, 100, 0, 0) 
-        self.layout.addWidget(self.button_frame, 1, 2, 2, 2, alignment=Qt.AlignBottom | Qt.AlignRight)
+        self.button_layout.setContentsMargins(0, 0, 221, 0)
+        self.button_layout.setSpacing(15)  # Add spacing between buttons
+        # self.layout.addWidget(self.button_frame, 1, 2, 2, 3, alignment=Qt.AlignBottom | Qt.AlignRight)
+        self.layout.addWidget(self.button_frame, 1, 5, 3, 2, alignment=Qt.AlignRight | Qt.AlignVCenter)
+        # self.layout.addWidget(self.button_frame, 1, 2, 2, 3)
 
         self.create_buttons()      
 
@@ -63,7 +63,7 @@ class MainMenuUI(QWidget):
             ("Gallery", self.gallery_btn_clicked),
             ("Artifacts", self.artifacts_btn_clicked),
         ]
-        button_width, button_height = 250, 60
+        button_width, button_height = 320, 60
         button_font_size = 20
 
         for text, signal in self.buttons:
@@ -73,6 +73,32 @@ class MainMenuUI(QWidget):
             btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             btn.clicked.connect(signal)
             self.button_layout.addWidget(btn)
+
+    def show_message_under_existing_btn(self, message):
+        # Find the Existing Story button and New Story button
+        existing_btn = None
+        # new_story_btn = None
+        for i in range(self.button_layout.count()):
+            btn = self.button_layout.itemAt(i).widget()
+            if isinstance(btn, QPushButton):
+                if btn.text() == "Existing Story":
+                    existing_btn = btn
+
+        # Create or update the message label
+        if not hasattr(self, 'existing_story_msg_label'):
+            self.existing_story_msg_label = QLabel(self.button_frame)
+            font = QFont("Arial", 11)
+            self.existing_story_msg_label.setFont(font)
+            self.existing_story_msg_label.setStyleSheet("color: maroon; margin: 0; padding: 0; font-weight: bold;")
+        self.existing_story_msg_label.setText(message)
+
+        # Insert the label right above the Existing Story button
+        if existing_btn:
+            idx = self.button_layout.indexOf(existing_btn)
+            # Remove label if already in layout to avoid duplicates
+            self.button_layout.removeWidget(self.existing_story_msg_label)
+            self.button_layout.insertWidget(idx, self.existing_story_msg_label)
+            existing_btn.setEnabled(False)
 
 
 class NewStoryUI(QWidget):
