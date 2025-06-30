@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit, QFileDialog, QTextEdit, QToolBar, QColorDialog, QFontComboBox, QComboBox, QCheckBox, QRadioButton, QButtonGroup, QApplication)
+    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit, QFileDialog, QTextEdit, QToolBar, QColorDialog, QFontComboBox, QComboBox, QCheckBox, QRadioButton, QButtonGroup, QApplication, QSpacerItem)
 from PySide6.QtGui import QFont, QIcon, QPixmap, QTextCharFormat, QTextListFormat, QAction
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
 import os
@@ -13,7 +13,7 @@ ITEMS_FIELDS = ['name', 'material', 'rarity', 'image_path', 'notes']
 
 class GalleryUI(QWidget):
     """A modal dialog with a left-hand vertical navigation pane and a close button row."""
-    search_options_changed = Signal(str, str, list, object)
+    search_options_changed = Signal(str, str, list, object, str)
     details_data_ready = Signal(dict)
     notes_edited = Signal(str)
     close_gallery = Signal(str)
@@ -24,6 +24,7 @@ class GalleryUI(QWidget):
         self.parent_view = parent
         self.controller = controller
         self.existing_stories = existing_stories
+        existing_stories_indexes = [idx for idx, name in self.existing_stories.items() if name]
         self.prev_view = prev_view
         self.nav_buttons = []
         self.details_values = []
@@ -38,8 +39,10 @@ class GalleryUI(QWidget):
         self.current_notes = None
         if prev_view in ('game dashboard', 'characters list'):
             self.modal = True
+            self.last_search_options = ("Ascending", "Active", ["Characters", "Places", "Items"], None)
         else:
             self.modal = False
+            self.last_search_options = ("Ascending", "Active", ["Characters", "Places", "Items"], existing_stories_indexes)
 
         if self.modal:
             self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
@@ -81,9 +84,12 @@ class GalleryUI(QWidget):
         dialog_action.setToolTip("Search options")
         self.search_box.addAction(dialog_action, QLineEdit.TrailingPosition)  # Add to the right
 
+        self.popup = SearchOptionsPopup(self, modal=self.modal, existing_stories=self.existing_stories)
+        self.popup.values_changed.connect(self.selected_search_options)
+
         # Connect the action to your dialog-opening function
         dialog_action.triggered.connect(self.open_search_menu)        
-        self.search_box.textEdited.connect(self.typed_in_search_box)
+        self.search_box.textEdited.connect(self.emit_current_search_options)
 
         self.title_label = QLabel("Gallery", close_row_container)
         self.title_label.setFont(QFont("Arial", 28))
@@ -94,23 +100,16 @@ class GalleryUI(QWidget):
             font-weight: bold;
             font-style: italic;
         """)
+        close_button = QPushButton(close_row_container)
         if self.modal:
-            close_button = QPushButton(close_row_container)
             close_button.setIcon(QIcon("assets/icons/close_icon.png"))
             close_button.setIconSize(QSize(25, 25))
             close_button.setFont(QFont("Arial", 14, QFont.Bold))
-            close_button.setStyleSheet("""
-                padding: 0px;
-                background-color: white;
-                color: maroon;
-            """)
+            close_button.setStyleSheet("padding: 0px; background-color: white; color: maroon;")
         else:
-            close_button = QPushButton("Main Menu", close_row_container)
+            close_button.setText("Main Menu")
             close_button.setFont(QFont("Arial", 14, QFont.Bold))
-            close_button.setStyleSheet("""
-                padding: 10px;
-                color: white;
-            """)
+            close_button.setStyleSheet("padding: 10px; color: white;")
         close_button.clicked.connect(self.emit_details_data_and_close)
 
         close_row_layout = QHBoxLayout(close_row_container)
@@ -145,10 +144,7 @@ class GalleryUI(QWidget):
             btn = QPushButton(nav_item_name, self.nav_frame)
             btn.setFont(QFont("Arial", 14))
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            btn.setStyleSheet("""
-                padding: 10px;
-                color: white;
-            """)
+            btn.setStyleSheet("padding: 10px; color: white;")
             btn.clicked.connect(lambda checked, b=btn, type=nav_item_type, id=nav_item_id: self.handle_nav_click(b, type, id))
             self.nav_layout.addWidget(btn)
             self.nav_buttons.append(btn)
@@ -194,33 +190,23 @@ class GalleryUI(QWidget):
         content_layout.addWidget(self.details_section, 0, 3, 3, 2)
 
         for i in range(7):
-            details_row = QLineEdit(self.details_section)          
+            details_row = QLineEdit(self.details_section)
             details_row.setAlignment(Qt.AlignCenter)
             if i == 0:
                 font = QFont("Arial", 13, QFont.Bold)
                 font.setItalic(True)
-                details_row.setFont(font)           
-                details_row.setStyleSheet("""
-                    padding: 14px;
-                    color: yellow;                                       
-                """)
+                details_row.setFont(font)
+                details_row.setStyleSheet("padding: 14px; color: yellow;")
                 self.details_layout.addWidget(details_row, 3)
             elif i == 1:
                 details_row.setFont(QFont("Arial", 15, QFont.Bold))
-                details_row.setStyleSheet("""
-                    padding: 13px;
-                    color: lightblue;
-                    background-color: maroon;
-                """)
+                details_row.setStyleSheet("padding: 13px; color: lightblue; background-color: maroon;")
                 self.details_layout.addWidget(details_row, 2)
             else:
-                details_row.setFont(QFont("Arial", 12))              
-                details_row.setStyleSheet("""
-                    padding: 11px;
-                    color: white;
-                """)
+                details_row.setFont(QFont("Arial", 12))
+                details_row.setStyleSheet("padding: 11px; color: white;")
                 self.details_layout.addWidget(details_row, 2)
-            details_row.textChanged.connect(self.set_details_placeholders_tooltips)    
+            details_row.textChanged.connect(self.set_details_placeholders_tooltips)
             details_row.editingFinished.connect(self.details_editing_finished)
             self.details_values.append(details_row)
 
@@ -325,8 +311,27 @@ class GalleryUI(QWidget):
         self.update_content_for_nav(nav_type, nav_id)
 
     def open_search_menu(self):
-        self.popup = SearchOptionsPopup(self, modal=self.modal, existing_stories=self.existing_stories)
-        self.popup.values_changed.connect(self.selected_search_options)
+        sort, show, categories, stories = self.last_search_options
+        # Set radio buttons
+        if sort == "Ascending":
+            self.popup.radio1_a.setChecked(True)
+        else:
+            self.popup.radio1_b.setChecked(True)
+        if show == "Active":
+            self.popup.radio2_a.setChecked(True)
+        elif show == "Inactive":
+            self.popup.radio2_b.setChecked(True)
+        else:
+            self.popup.radio2_c.setChecked(True)
+        # Set checkboxes
+        self.popup.checkbox1.setChecked("Characters" in categories)
+        self.popup.checkbox2.setChecked("Places" in categories)
+        self.popup.checkbox3.setChecked("Items" in categories)
+        # Set story checkboxes if present
+        if hasattr(self.popup, "story_checkboxes") and stories is not None:
+            for story_index, cb in self.popup.story_checkboxes:
+                cb.setChecked(story_index in stories)
+                
         self.popup.adjustSize()
         line_edit_rect = self.search_box.rect()
         global_pos = self.search_box.mapToGlobal(line_edit_rect.bottomRight())
@@ -338,10 +343,14 @@ class GalleryUI(QWidget):
 
     def selected_search_options(self, radio1_val, radio2_val, checkboxes, story_checkboxes):
         self.last_search_options = (radio1_val, radio2_val, checkboxes, story_checkboxes)
-        self.search_options_changed.emit(radio1_val, radio2_val, checkboxes, story_checkboxes)
+        # self.search_options_changed.emit(radio1_val, radio2_val, checkboxes, story_checkboxes)
+        self.emit_current_search_options()
 
-    def typed_in_search_box(self, text):
-        print(f"Search text changed: {text}")
+    def emit_current_search_options(self, *args):
+        # Always emit the current filter state (including search text)
+        sort, show, categories, stories = self.last_search_options
+        search_text = self.search_box.text()
+        self.search_options_changed.emit(sort, show, categories, stories, search_text)
 
     def update_content_for_nav(self, nav_type, nav_id):
         # Fetch current data from the view/db
@@ -563,6 +572,46 @@ class GalleryUI(QWidget):
         numbering_action.triggered.connect(insert_numbering)
         self.notes_toolbar.addAction(numbering_action)
 
+    def update_nav_bar(self, nav_bar_list):
+        # Remove all existing nav buttons from the layout and clear lists/maps
+        for btn in self.nav_buttons:
+            self.nav_layout.removeWidget(btn)
+            btn.deleteLater()
+        self.nav_buttons.clear()
+        self.nav_id_to_label.clear()
+        self.nav_btn_map.clear()
+
+        # Remove any previous stretch
+        count = self.nav_layout.count()
+        if count > 0 and isinstance(self.nav_layout.itemAt(count - 1), QSpacerItem):
+            item = self.nav_layout.takeAt(count - 1)
+            del item
+
+        # Add new buttons from nav_bar_list
+        for nav_item in nav_bar_list:
+            nav_item_type = nav_item[0]
+            if self.modal:
+                nav_item_id = nav_item[1]
+                nav_item_name = nav_item[2]
+            else:
+                nav_item_story_index = nav_item[1]
+                nav_item_id = nav_item[2]
+                nav_item_name = nav_item[3]
+            btn = QPushButton(nav_item_name, self.nav_frame)
+            btn.setFont(QFont("Arial", 14))
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            btn.setStyleSheet("""
+                padding: 10px;
+                color: white;
+            """)
+            btn.clicked.connect(lambda checked, b=btn, type=nav_item_type, id=nav_item_id: self.handle_nav_click(b, type, id))
+            self.nav_layout.addWidget(btn)
+            self.nav_buttons.append(btn)
+            self.nav_id_to_label[(nav_item_type, nav_item_id)] = nav_item_name
+            self.nav_btn_map[(nav_item_type, nav_item_id)] = btn
+
+        self.nav_layout.addStretch()
+
 class SearchOptionsPopup(QWidget):
     values_changed = Signal(str, str, list, object)
 
@@ -682,8 +731,9 @@ class SearchOptionsPopup(QWidget):
                             story_row.addWidget(cb)
                             popup_self.story_checkboxes.append((story_index, cb))
                     layout.addLayout(story_row)
-
-        popup_self.setFixedSize(480, 510)
+            popup_self.setFixedSize(480, 510)
+        else:
+            popup_self.setFixedSize(400, 335)
 
         # Connect signals to emit current values
         popup_self.radio1_a.toggled.connect(popup_self.emit_current_values)
@@ -724,12 +774,14 @@ class SearchOptionsPopup(QWidget):
         for cb in [popup_self.checkbox1, popup_self.checkbox2, popup_self.checkbox3]:
             if cb.isChecked():
                 checked_boxes.append(cb.text())
-        checked_stories = []
         if hasattr(popup_self, "story_checkboxes"):
+            checked_stories = []
             for story_index, cb in popup_self.story_checkboxes:
                 if cb.isChecked():
                     checked_stories.append(story_index)
-        popup_self.values_changed.emit(radio1_val, radio2_val, checked_boxes, checked_stories)
+            popup_self.values_changed.emit(radio1_val, radio2_val, checked_boxes, checked_stories)
+        else:
+            popup_self.values_changed.emit(radio1_val, radio2_val, checked_boxes, None)
 
     def return_values_and_close(popup_self):
         # Gather values
