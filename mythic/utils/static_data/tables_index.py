@@ -17,6 +17,8 @@ from .mythic_tables.page_212 import NOBLE_HOUSE, OBJECTS, PLOT_TWISTS
 from .mythic_tables.page_213 import POWERS, SCAVENGING_RESULTS, SMELLS
 from .mythic_tables.page_214 import SOUNDS, SPELL_EFFECTS, STARSHIP_DESCRIPTORS
 from .mythic_tables.page_215 import TERRAIN_DESCRIPTORS, UNDEAD_DESCRIPTORS, VISIONS_DREAMS
+from .mythic_tables.page_216 import TESTING_THE_EXPECTED_SCENE, SCENE_ADJUSTMENT_TABLE
+from .mythic_tables.page_217 import NPC_BEHAVIOR_TABLE, NPC_STATISTICS_TABLE
 
 
 TABLES_INDEX = {
@@ -72,4 +74,7 @@ TABLES_INDEX = {
     "Terrain Descriptors": TERRAIN_DESCRIPTORS,
     "Undead Descriptors": UNDEAD_DESCRIPTORS,
     "Visions Dreams": VISIONS_DREAMS,
+    "Testing the Expected Scene": TESTING_THE_EXPECTED_SCENE,
+    "Scene Adjustment Table": SCENE_ADJUSTMENT_TABLE,
+    "NPC Behavior Table": NPC_BEHAVIOR_TABLE,
 }

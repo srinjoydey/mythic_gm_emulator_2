@@ -11,7 +11,7 @@ class MainAppWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Mythic GM Emulator")
-        self.setFixedSize(1366, 768)
+        self.setFixedSize(1366, 698)
 
         # Background label for displaying images
         self.bg_label = QLabel(self)

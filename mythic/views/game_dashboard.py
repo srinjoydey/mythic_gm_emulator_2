@@ -26,11 +26,16 @@ class GameDashboardView(QWidget):
 
         # Attach UI with navigation logic
         self.ui = GameDashboardUI(self, controller, self.story_index)
+        self.ui.oracles_tables_button_clicked.connect(lambda: self.navigate_to_oracles_tables())
         self.ui.characters_button_clicked.connect(lambda: self.navigate_to_characters_list(self.story_index))
         self.ui.threads_button_clicked.connect(lambda: self.navigate_to_threads_list(self.story_index))
         self.ui.gallery_modal_button_clicked.connect(lambda: self.navigate_to_gallery_modal(self.story_index))
         self.ui.main_menu_button_clicked.connect(lambda: self.navigate_to_main_menu())
         self.setLayout(self.ui.layout)  # Use UI's layout directly
+
+    def navigate_to_oracles_tables(self):
+        from views.main_menu import OraclesTablesView
+        self.controller.show_view(OraclesTablesView, prev_view='game dashboard', story_index=self.story_index)
 
     def navigate_to_characters_list(self, story_index):
         self.controller.show_view(CharactersList, story_index=story_index)

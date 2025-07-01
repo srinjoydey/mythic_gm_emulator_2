@@ -492,30 +492,45 @@ class ExistingStoryUI(QWidget):
 class OraclesTablesUI(QWidget):
     """A fullscreen view with a left-hand vertical navigation pane and a close button row."""
     nav_item_selected = Signal(str)
+    close_oracles_tables_window = Signal(str)
 
-    def __init__(self, parent, controller, nav_items):
+    def __init__(self, parent, controller, nav_items, prev_view):
         super().__init__(parent)
         self.parent_view = parent
         self.controller = controller
+        self.prev_view = prev_view
         self.nav_buttons = []
         self.selected_nav_btn = None
         self.nav_btn_map = {}
+        if prev_view == 'game dashboard':
+            self.modal = True
+        else:
+            self.modal = False
 
         # Make the UI fill the entire parent window
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # Main grid layout
         self.layout = QGridLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
+        if self.modal:
+            self.layout.setContentsMargins(50, 20, 50, 50)
+        else:
+            self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
 
         # --- Top Row: Title and Close Button ---
         close_row_container = QWidget(self)
-        close_row_container.setStyleSheet("background-color: #333;")
+        if self.modal:
+            close_row_container.setStyleSheet("background-color: transparent;")
+        else:
+            close_row_container.setStyleSheet("""
+                background-color: #222;
+            """)
 
-        self.title_label = QLabel("Gallery", close_row_container)
+        self.title_label = QLabel("Oracles / Tables", close_row_container)
         self.title_label.setFont(QFont("Arial", 28))
         self.title_label.setStyleSheet("""
+            background-color: transparent;
             padding: 10px;                                  
             color: maroon;
             font-weight: bold;
@@ -523,20 +538,25 @@ class OraclesTablesUI(QWidget):
         """)
 
         close_button = QPushButton(close_row_container)
-        close_button.setIcon(QIcon("assets/icons/close_icon.png"))
-        close_button.setIconSize(QSize(25, 25))
-        close_button.setFont(QFont("Arial", 14, QFont.Bold))
-        close_button.setStyleSheet("""
-            padding: 0px;
-            background-color: white;
-            color: maroon;
-        """)
-        # close_button.clicked.connect(self.emit_details_data_and_close)
+        if self.modal:
+            close_button.setIcon(QIcon("assets/icons/close_icon.png"))
+            close_button.setIconSize(QSize(25, 25))
+            close_button.setFont(QFont("Arial", 14, QFont.Bold))
+            close_button.setStyleSheet("""
+                padding: 0px;
+                background-color: white;
+                color: maroon;
+            """)
+        else:
+            close_button.setText("Story Dashboard")
+            close_button.setFont(QFont("Arial", 14, QFont.Bold))
+            close_button.setStyleSheet("padding: 10px; color: white;")
+        close_button.clicked.connect(self.close_oracles_tables)
 
         close_row_layout = QHBoxLayout(close_row_container)
         close_row_layout.addWidget(self.title_label, alignment=Qt.AlignCenter)
         close_row_layout.addWidget(close_button, alignment=Qt.AlignRight)
-        close_row_layout.setContentsMargins(40, 5, 40, 5)
+        close_row_layout.setContentsMargins(428, 5, 40, 5)
 
         self.layout.addWidget(close_row_container, 0, 0, 1, 13)
 
@@ -564,8 +584,6 @@ class OraclesTablesUI(QWidget):
             self.nav_buttons.append(btn)
             self.nav_btn_map[nav_item] = btn
 
-
-        self.nav_layout.addStretch()
         self.nav_scroll_area.setWidget(self.nav_frame)
         self.layout.addWidget(self.nav_scroll_area, 1, 0, 10, 3)
 
@@ -577,7 +595,8 @@ class OraclesTablesUI(QWidget):
         self.content_nav_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.content_nav_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
-        self.content_nav_frame = QFrame(self.content_nav_scroll_area)
+        self.content_nav_frame = QWidget(self.content_nav_scroll_area)
+        self.content_nav_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         content_layout = QGridLayout(self.content_nav_frame)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
@@ -611,7 +630,6 @@ class OraclesTablesUI(QWidget):
 
         # Emit signal or call method to get data from the view
         self.nav_item_selected.emit(nav_item)
-        # self.update_content_for_nav(nav_item)
 
     def render_fate_chart(self, nav_item, table):
         # Remove previous content
@@ -704,10 +722,6 @@ class OraclesTablesUI(QWidget):
         grid.setSpacing(0)
         grid.setContentsMargins(0, 5, 0, 0)
 
-        # Set column stretch: 1 for number, 4 for string
-        grid.setColumnStretch(0, 2)
-        grid.setColumnStretch(1, 4)
-
         row_count = len(table)
         for row, (num_range, text) in enumerate(table):
             num_label = QLabel(str(num_range), self.content_nav_frame)
@@ -721,9 +735,6 @@ class OraclesTablesUI(QWidget):
             text_label.setAlignment(Qt.AlignCenter)
             text_label.setStyleSheet("background-color: white; color: black; border: 1px solid #aaa; padding: 15px;")
             grid.addWidget(text_label, row, 1)
-
-        # Make the table fill the content area vertically
-        grid.setRowStretch(row_count, 1)
 
         # Set the new layout to the content_nav_frame
         old_layout = self.content_nav_frame.layout()
@@ -775,6 +786,9 @@ class OraclesTablesUI(QWidget):
         if old_layout:
             QWidget().setLayout(old_layout)
         self.content_nav_frame.setLayout(grid)
+
+    def close_oracles_tables(self):
+        self.close_oracles_tables_window.emit(self.prev_view)
 
 
 class ArtifactsUI(QWidget):

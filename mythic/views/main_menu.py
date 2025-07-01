@@ -19,7 +19,7 @@ class MainMenu(QWidget):
         self.ui = MainMenuUI(self, controller)
         self.ui.new_story_btn_clicked.connect(lambda: self.controller.show_view(NewStoryView))
         self.ui.existing_story_btn_clicked.connect(self.handle_existing_story_btn)
-        self.ui.oracles_tables_btn_clicked.connect(lambda: self.controller.show_view(OraclesTablesView))
+        self.ui.oracles_tables_btn_clicked.connect(self.get_full_oracles_tables)
         self.ui.gallery_btn_clicked.connect(self.get_full_gallery)
         self.ui.artifacts_btn_clicked.connect(lambda: self.controller.show_view(ArtifactsView))
         self.setLayout(self.ui.layout)  # Use UI's layout directly
@@ -32,6 +32,9 @@ class MainMenu(QWidget):
             self.ui.show_message_under_existing_btn("No stories found. Please create a New Story.")
         else:
             self.controller.show_view(ExistingStoryView, all_stories=all_stories)
+
+    def get_full_oracles_tables(self):
+        self.controller.show_view(OraclesTablesView, prev_view="main menu")
 
     def get_full_gallery(self):
         from views.gallery import GalleryView
@@ -185,19 +188,21 @@ class ExistingStoryView(QWidget):
 
 class OraclesTablesView(QWidget):
     """Handles main menu layout & navigation."""
-    def __init__(self, parent, controller):
+    def __init__(self, parent, controller, prev_view, story_index=None):
         # from ui.main_menu_ui import OraclesTablesUI
         from ui.main_menu_ui import OraclesTablesUI
 
         super().__init__(parent)
         self.controller = controller
+        self.story_index = story_index
 
         # Define background image path (handled by MainAppWindow)
         self.bg_image_path = "assets/page1_bg.jpg"
 
         # Attach UI with navigation logic
-        self.ui = OraclesTablesUI(self, controller, list(TABLES_INDEX.keys()))
+        self.ui = OraclesTablesUI(self, controller, list(TABLES_INDEX.keys()), prev_view)
         self.ui.nav_item_selected.connect(self.get_table_data)
+        self.ui.close_oracles_tables_window.connect(self.navigate_to_previous_view)
         # Layout to ensure proper expansion
         self.setLayout(self.ui.layout)
 
@@ -209,6 +214,13 @@ class OraclesTablesView(QWidget):
             self.ui.render_random_event_focus_table(nav_item, table)
         else:
             self.ui.render_d100_table(nav_item, table)
+
+    def navigate_to_previous_view(self, prev_view):
+        if prev_view == 'main menu':
+            self.controller.show_view(MainMenu)
+        elif prev_view == 'game dashboard':
+            from views.game_dashboard import GameDashboardView
+            self.controller.show_view(GameDashboardView, story_index=self.story_index)
 
 
 class ArtifactsView(QWidget):

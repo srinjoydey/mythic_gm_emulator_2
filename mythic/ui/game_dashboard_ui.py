@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
 
 class GameDashboardUI(QWidget):
     """UI Layout for Main Menu with buttons and styling."""
+    oracles_tables_button_clicked = Signal()
     characters_button_clicked = Signal()
     threads_button_clicked = Signal()
     gallery_modal_button_clicked = Signal()
@@ -23,34 +24,43 @@ class GameDashboardUI(QWidget):
         self.layout = QGridLayout(self)
         self.layout.setSpacing(10)
 
-        for i in range(5):
-            self.layout.setColumnStretch(i, 1)
-            self.layout.setRowStretch(i, 1)
-
         # Title Label (Centered)
         self.title_label = QLabel(parent.story_name, self)
         self.title_label.setFont(QFont("Arial", 28))
         # Apply transparent background
         self.title_label.setStyleSheet("""
             background-color: transparent;
-            padding: 10px;
+            padding: 0px;
             color: maroon;
             font-weight: bold;
             font-style: italic;            
         """)
-        self.layout.addWidget(self.title_label, 1, 1, 1, 1)
+        self.layout.addWidget(self.title_label, 0, 0, 1, 5)
 
-        # Button Frame (Bottom-right placement)
-        self.button_frame = QFrame(self)
-        self.button_layout = QVBoxLayout(self.button_frame)
-        self.button_layout.setContentsMargins(0, 100, 0, 0)
-        self.layout.addWidget(self.button_frame, 1, 2, 2, 2, alignment=Qt.AlignBottom | Qt.AlignRight)
-        self.create_buttons()
+        # Button Frame (Middle-Left placement)
+        self.left_content_frame = QFrame(self)
+        self.left_content_button_layout = QVBoxLayout(self.left_content_frame)
+        self.left_content_button_layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.addWidget(self.left_content_frame, 1, 0, 2, 2, alignment=Qt.AlignCenter)
+        self.create_left_content_buttons()
 
-    def create_buttons(self):
+        # Button Frame (Middle-Right placement)
+        self.right_content_frame = QFrame(self)
+        self.right_content_button_layout = QVBoxLayout(self.right_content_frame)
+        self.right_content_button_layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.addWidget(self.right_content_frame, 1, 3, 2, 2, alignment=Qt.AlignCenter)
+        self.create_right_content_buttons()
+
+        self.bottom_content_frame = QFrame(self)
+        self.bottom_content_frame.setStyleSheet("background-color: transparent;")
+        self.bottom_layout = QHBoxLayout(self.bottom_content_frame)
+        self.bottom_layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.addWidget(self.bottom_content_frame, 3, 0, 1, 5)
+
+    def create_right_content_buttons(self):
         """Creates buttons dynamically with optimized layout."""
         # Define menu buttons dynamically
-        self.signals = [
+        signals = [
             ("Characters", self.characters_button_clicked),
             ("Threads", self.threads_button_clicked),
             ("Gallery Modal", self.gallery_modal_button_clicked),
@@ -59,13 +69,33 @@ class GameDashboardUI(QWidget):
         button_width, button_height = 250, 60
         button_font_size = 20
 
-        for text, signal in self.signals:
-            btn = QPushButton(text, self.button_frame)
+        for text, signal in signals:
+            btn = QPushButton(text, self.right_content_frame)
             btn.setFont(QFont("Arial", button_font_size))
             btn.setMinimumSize(button_width, button_height)
             btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             btn.clicked.connect(signal.emit)
-            self.button_layout.addWidget(btn)
+            self.right_content_button_layout.addWidget(btn)
+
+    def create_left_content_buttons(self):
+        """Creates buttons dynamically with optimized layout."""
+        # Define menu buttons dynamically
+        signals = [
+            ("Oracles / Tables", self.oracles_tables_button_clicked),
+            # ("Threads", self.threads_button_clicked),
+            # ("Gallery Modal", self.gallery_modal_button_clicked),
+            # ("Main Menu", self.main_menu_button_clicked),            
+        ]
+        button_width, button_height = 250, 60
+        button_font_size = 20
+
+        for text, signal in signals:
+            btn = QPushButton(text, self.left_content_frame)
+            btn.setFont(QFont("Arial", button_font_size))
+            btn.setMinimumSize(button_width, button_height)
+            btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            btn.clicked.connect(signal.emit)
+            self.left_content_button_layout.addWidget(btn)
 
 
 class ClickableLabel(QLabel):
