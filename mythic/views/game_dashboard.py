@@ -31,6 +31,7 @@ class GameDashboardView(QWidget):
         self.ui.threads_button_clicked.connect(lambda: self.navigate_to_threads_list(self.story_index))
         self.ui.gallery_modal_button_clicked.connect(lambda: self.navigate_to_gallery_modal(self.story_index))
         self.ui.main_menu_button_clicked.connect(lambda: self.navigate_to_main_menu())
+        self.ui.start_scene_action_selected.connect(self.handle_start_scene_action)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
     def navigate_to_oracles_tables(self):
@@ -49,7 +50,14 @@ class GameDashboardView(QWidget):
 
     def navigate_to_main_menu(self):
         from views.main_menu import MainMenu
-        self.controller.show_view(MainMenu)        
+        self.controller.show_view(MainMenu)
+
+    def handle_start_scene_action(self, action):
+        if action == "expected_scene_test":
+            self.ui.test_expected_scene()
+        elif action == "oracles_tables":
+            from views.main_menu import OraclesTablesView
+            self.controller.show_view(OraclesTablesView, prev_view='game dashboard', first_nav_item=None, story_index=self.story_index)   
 
     def get_background_image(self):
         """Returns the background image path for this view."""
@@ -191,3 +199,11 @@ class ThreadsList(QWidget):
             return self.ui.bg_image_path  # UI manages background image selection
         except AttributeError:
             pass
+
+        # At the end of scene, roll d10. If roll <= chaos_factor, chaos_factor-1. Else chaos_factor+1. Chaos factor cannot be less than 1 or greater than 9
+        # roll = random.randint(1, 10)
+        # if roll <= self.chaos_factor:
+        #     self.chaos_factor = max(1, self.chaos_factor - 1)
+        # else:
+        #     self.chaos_factor = min(9, self.chaos_factor + 1)
+        # self.chaos_factor_changed.emit(self.chaos_factor)

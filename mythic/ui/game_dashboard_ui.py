@@ -12,7 +12,7 @@ class GameDashboardUI(QWidget):
     gallery_modal_button_clicked = Signal()
     main_menu_button_clicked = Signal()
     chaos_factor_changed = Signal(int)
-    start_scene_button_clicked = Signal()
+    start_scene_action_selected = Signal(str)
 
     def __init__(self, parent, controller, story_index):
         super().__init__(parent)
@@ -163,18 +163,13 @@ class GameDashboardUI(QWidget):
         dlg = CustomSceneDialog(self)
         result = dlg.exec()
         if result == 1:
-            return "expected scene test"
+            self.start_scene_action_selected.emit("expected_scene_test")
         elif result == 2:
-            return "oracles/tables"
-        return None
+            self.start_scene_action_selected.emit("oracles_tables")
+        # No return needed; let the controller/view handle the result
 
-        # At the end of scene, roll d10. If roll <= chaos_factor, chaos_factor-1. Else chaos_factor+1. Chaos factor cannot be less than 1 or greater than 9
-        # roll = random.randint(1, 10)
-        # if roll <= self.chaos_factor:
-        #     self.chaos_factor = max(1, self.chaos_factor - 1)
-        # else:
-        #     self.chaos_factor = min(9, self.chaos_factor + 1)
-        # self.chaos_factor_changed.emit(self.chaos_factor)
+    def test_expected_scene(self):
+        print("Expected Scene Test Triggered")
 
 
 class CustomSceneDialog(QDialog):
@@ -206,8 +201,6 @@ class CustomSceneDialog(QDialog):
         """)
 
         layout = QVBoxLayout(self)
-        # label = QLabel("What would you like to do?", self)
-        # layout.addWidget(label)
 
         button_row = QHBoxLayout()
         self.test_btn = QPushButton("Test the Expected Scene", self)
