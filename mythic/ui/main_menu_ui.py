@@ -494,7 +494,7 @@ class OraclesTablesUI(QWidget):
     nav_item_selected = Signal(str)
     close_oracles_tables_window = Signal(str)
 
-    def __init__(self, parent, controller, nav_items, prev_view):
+    def __init__(self, parent, controller, nav_items, first_nav_item, prev_view):
         super().__init__(parent)
         self.parent_view = parent
         self.controller = controller
@@ -609,7 +609,8 @@ class OraclesTablesUI(QWidget):
         self.layout.addWidget(self.content_nav_scroll_area, 1, 3, 10, 10)
 
         if self.nav_buttons:
-            first_nav_item = nav_items[0]
+            if not first_nav_item:
+                first_nav_item = nav_items[0]
             first_btn = self.nav_btn_map.get(first_nav_item)
             QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, first_nav_item))
 

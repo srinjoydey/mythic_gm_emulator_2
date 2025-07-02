@@ -35,7 +35,7 @@ class GameDashboardView(QWidget):
 
     def navigate_to_oracles_tables(self):
         from views.main_menu import OraclesTablesView
-        self.controller.show_view(OraclesTablesView, prev_view='game dashboard', story_index=self.story_index)
+        self.controller.show_view(OraclesTablesView, prev_view='game dashboard', first_nav_item=None, story_index=self.story_index)
 
     def navigate_to_characters_list(self, story_index):
         self.controller.show_view(CharactersList, story_index=story_index)

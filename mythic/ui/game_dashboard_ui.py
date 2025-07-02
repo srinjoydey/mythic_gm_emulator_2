@@ -1,5 +1,5 @@
 from functools import partial
-from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox, QMessageBox
+from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox, QMessageBox, QDialog
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
 
@@ -11,11 +11,14 @@ class GameDashboardUI(QWidget):
     threads_button_clicked = Signal()
     gallery_modal_button_clicked = Signal()
     main_menu_button_clicked = Signal()
+    chaos_factor_changed = Signal(int)
+    start_scene_button_clicked = Signal()
 
     def __init__(self, parent, controller, story_index):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
+        self.chaos_factor = self.parent().chaos_factor
 
         # Define background image path (now managed here)
         self.bg_image_path = "visuals/backgrounds/game_dashboard.png"
@@ -35,7 +38,7 @@ class GameDashboardUI(QWidget):
             font-weight: bold;
             font-style: italic;            
         """)
-        self.layout.addWidget(self.title_label, 0, 0, 1, 5)
+        self.layout.addWidget(self.title_label, 0, 0, 1, 6, alignment=Qt.AlignCenter)
 
         # Button Frame (Middle-Left placement)
         self.left_content_frame = QFrame(self)
@@ -44,18 +47,61 @@ class GameDashboardUI(QWidget):
         self.layout.addWidget(self.left_content_frame, 1, 0, 2, 2, alignment=Qt.AlignCenter)
         self.create_left_content_buttons()
 
+        # Button Frame (Center)
+        self.center_content_frame = QFrame(self)
+        self.center_content_button_layout = QVBoxLayout(self.center_content_frame)
+        self.center_content_button_layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.addWidget(self.center_content_frame, 1, 2, 2, 2, alignment=Qt.AlignCenter)
+        self.create_center_content_buttons()
+
         # Button Frame (Middle-Right placement)
         self.right_content_frame = QFrame(self)
         self.right_content_button_layout = QVBoxLayout(self.right_content_frame)
         self.right_content_button_layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.addWidget(self.right_content_frame, 1, 3, 2, 2, alignment=Qt.AlignCenter)
+        self.layout.addWidget(self.right_content_frame, 1, 4, 2, 2, alignment=Qt.AlignCenter)
         self.create_right_content_buttons()
 
+        # Bottom Content Frame (for additional content)
         self.bottom_content_frame = QFrame(self)
         self.bottom_content_frame.setStyleSheet("background-color: transparent;")
         self.bottom_layout = QHBoxLayout(self.bottom_content_frame)
         self.bottom_layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.addWidget(self.bottom_content_frame, 3, 0, 1, 5)
+        self.layout.addWidget(self.bottom_content_frame, 3, 0, 1, 6)
+
+
+
+    def create_left_content_buttons(self):
+        """Creates buttons dynamically with optimized layout."""
+        # Define menu buttons dynamically
+        signals = [
+            ("Oracles / Tables", self.oracles_tables_button_clicked),
+            ("Gallery Modal", self.gallery_modal_button_clicked),            
+        ]
+        button_width, button_height = 250, 60
+        button_font_size = 20
+
+        self.left_content_button_layout.setSpacing(10)
+
+        for text, signal in signals:
+            btn = QPushButton(text, self.left_content_frame)
+            btn.setFont(QFont("Arial", button_font_size))
+            btn.setMinimumSize(button_width, button_height)
+            btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            btn.clicked.connect(signal.emit)
+            self.left_content_button_layout.addWidget(btn)
+
+    def create_center_content_buttons(self):
+        button_width, button_height = 250, 60
+        button_font_size = 20
+
+        self.center_content_button_layout.setSpacing(65)
+        self.create_chaos_factor_counter(self.center_content_frame)
+        btn = QPushButton("Start a Scene", self.center_content_frame)
+        btn.setFont(QFont("Arial", button_font_size))
+        btn.setMinimumSize(button_width, button_height)
+        btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        btn.clicked.connect(self.start_scene_dialog)
+        self.center_content_button_layout.addWidget(btn)
 
     def create_right_content_buttons(self):
         """Creates buttons dynamically with optimized layout."""
@@ -63,11 +109,12 @@ class GameDashboardUI(QWidget):
         signals = [
             ("Characters", self.characters_button_clicked),
             ("Threads", self.threads_button_clicked),
-            ("Gallery Modal", self.gallery_modal_button_clicked),
             ("Main Menu", self.main_menu_button_clicked),            
         ]
         button_width, button_height = 250, 60
         button_font_size = 20
+
+        self.right_content_button_layout.setSpacing(10)
 
         for text, signal in signals:
             btn = QPushButton(text, self.right_content_frame)
@@ -77,25 +124,127 @@ class GameDashboardUI(QWidget):
             btn.clicked.connect(signal.emit)
             self.right_content_button_layout.addWidget(btn)
 
-    def create_left_content_buttons(self):
-        """Creates buttons dynamically with optimized layout."""
-        # Define menu buttons dynamically
-        signals = [
-            ("Oracles / Tables", self.oracles_tables_button_clicked),
-            # ("Threads", self.threads_button_clicked),
-            # ("Gallery Modal", self.gallery_modal_button_clicked),
-            # ("Main Menu", self.main_menu_button_clicked),            
-        ]
-        button_width, button_height = 250, 60
-        button_font_size = 20
+    def create_chaos_factor_counter(self, parent_widget):
+        # --- Counter Widget ---
+        counter_widget = QWidget(self.left_content_frame)
+        counter_layout = QHBoxLayout(counter_widget)
+        counter_layout.setContentsMargins(0, 0, 0, 0)
+        counter_layout.setSpacing(5)
 
-        for text, signal in signals:
-            btn = QPushButton(text, self.left_content_frame)
-            btn.setFont(QFont("Arial", button_font_size))
-            btn.setMinimumSize(button_width, button_height)
-            btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            btn.clicked.connect(signal.emit)
-            self.left_content_button_layout.addWidget(btn)
+        minus_btn = QPushButton("-", counter_widget)
+        minus_btn.setFixedSize(32, 32)
+        minus_btn.setFont(QFont("Arial", 18, QFont.Bold))
+
+        self.counter_label = QLabel(str(self.chaos_factor), counter_widget)
+        self.counter_label.setAlignment(Qt.AlignCenter)
+        self.counter_label.setFixedWidth(40)
+        self.counter_label.setFont(QFont("Arial", 21, QFont.Bold))
+        self.counter_label.setStyleSheet("padding: 5px; color: maroon;")
+
+        plus_btn = QPushButton("+", counter_widget)
+        plus_btn.setFixedSize(32, 32)
+        plus_btn.setFont(QFont("Arial", 18, QFont.Bold))
+
+        counter_layout.addWidget(minus_btn)
+        counter_layout.addWidget(self.counter_label)
+        counter_layout.addWidget(plus_btn)
+        self.center_content_button_layout.addWidget(counter_widget, alignment=Qt.AlignCenter)
+
+        # Counter logic
+        def update_counter(delta):
+            value = int(self.counter_label.text()) + delta
+            self.counter_label.setText(str(value))
+            self.chaos_factor_changed.emit(value)
+
+        minus_btn.clicked.connect(lambda: update_counter(-1))
+        plus_btn.clicked.connect(lambda: update_counter(1))
+
+    def start_scene_dialog(self):
+        dlg = CustomSceneDialog(self)
+        result = dlg.exec()
+        if result == 1:
+            return "expected scene test"
+        elif result == 2:
+            return "oracles/tables"
+        return None
+
+        # At the end of scene, roll d10. If roll <= chaos_factor, chaos_factor-1. Else chaos_factor+1. Chaos factor cannot be less than 1 or greater than 9
+        # roll = random.randint(1, 10)
+        # if roll <= self.chaos_factor:
+        #     self.chaos_factor = max(1, self.chaos_factor - 1)
+        # else:
+        #     self.chaos_factor = min(9, self.chaos_factor + 1)
+        # self.chaos_factor_changed.emit(self.chaos_factor)
+
+
+class CustomSceneDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # self.setWindowTitle("Start a New Scene")
+        self.setWindowFlag(Qt.FramelessWindowHint, True)
+        self.setModal(True)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #666;
+                border: 1px solid black;
+            }
+            QLabel {
+                color: #800000;
+                font-weight: bold;
+                font-size: 28px;
+            }
+            QPushButton {
+                background-color: #fffbe6;
+                color: #800000;
+                border: 1px solid #800000;
+                padding: 12px 24px;
+                font-size: 20px;
+            }
+            QPushButton:hover {
+                background-color: #ffe6e6;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        # label = QLabel("What would you like to do?", self)
+        # layout.addWidget(label)
+
+        button_row = QHBoxLayout()
+        self.test_btn = QPushButton("Test the Expected Scene", self)
+        self.oracle_btn = QPushButton("Go to Fate Chart / Oracle", self)
+        button_row.addWidget(self.test_btn)
+        button_row.addWidget(self.oracle_btn)
+        layout.addLayout(button_row)
+
+        cancel_row = QHBoxLayout()
+        self.cancel_btn = QPushButton("Cancel", self)
+        cancel_row.addStretch(1)        
+        cancel_row.addWidget(self.cancel_btn)
+        cancel_row.addStretch(1)        
+        layout.addLayout(cancel_row)
+
+        self.test_btn.clicked.connect(lambda: self.done(1))
+        self.oracle_btn.clicked.connect(lambda: self.done(2))
+        self.cancel_btn.clicked.connect(lambda: self.done(0))
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # Align the top of the dialog with the "Start a Scene" button if possible
+        parent = self.parent()
+        btn = None
+        if hasattr(parent, "center_content_button_layout"):
+            for i in range(parent.center_content_button_layout.count()):
+                widget = parent.center_content_button_layout.itemAt(i).widget()
+                if isinstance(widget, QPushButton) and widget.text() == "Start a Scene":
+                    btn = widget
+                    break
+        if btn:
+            btn_pos = btn.mapToGlobal(btn.rect().topLeft())
+            dlg_geom = self.frameGeometry()
+            # Center horizontally over the button, align tops
+            x = btn_pos.x() + (btn.width() - dlg_geom.width()) // 2
+            y = btn_pos.y()
+            self.move(x, y)
 
 
 class ClickableLabel(QLabel):

@@ -188,7 +188,7 @@ class ExistingStoryView(QWidget):
 
 class OraclesTablesView(QWidget):
     """Handles main menu layout & navigation."""
-    def __init__(self, parent, controller, prev_view, story_index=None):
+    def __init__(self, parent, controller, prev_view, story_index=None, first_nav_item=None):
         # from ui.main_menu_ui import OraclesTablesUI
         from ui.main_menu_ui import OraclesTablesUI
 
@@ -200,7 +200,7 @@ class OraclesTablesView(QWidget):
         self.bg_image_path = "assets/page1_bg.jpg"
 
         # Attach UI with navigation logic
-        self.ui = OraclesTablesUI(self, controller, list(TABLES_INDEX.keys()), prev_view)
+        self.ui = OraclesTablesUI(self, controller, list(TABLES_INDEX.keys()), first_nav_item, prev_view)
         self.ui.nav_item_selected.connect(self.get_table_data)
         self.ui.close_oracles_tables_window.connect(self.navigate_to_previous_view)
         # Layout to ensure proper expansion
