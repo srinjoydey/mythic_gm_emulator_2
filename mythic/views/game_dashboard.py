@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QWidget
 from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapted for PySide6
 from models.master_tables import StoriesIndex, Characters, Places, Items, Notes
 from models.db_config import session
+from utils.static_data.tables_index import TESTING_THE_EXPECTED_SCENE
  
 
 MODEL_MAP = {"character": Characters, "place": Places, "item": Items}
@@ -32,6 +33,7 @@ class GameDashboardView(QWidget):
         self.ui.gallery_modal_button_clicked.connect(lambda: self.navigate_to_gallery_modal(self.story_index))
         self.ui.main_menu_button_clicked.connect(lambda: self.navigate_to_main_menu())
         self.ui.start_scene_action_selected.connect(self.handle_start_scene_action)
+        self.ui.start_scene_action_resolution.connect(self.resolve_start_scene_action)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
     def navigate_to_oracles_tables(self):
@@ -54,10 +56,18 @@ class GameDashboardView(QWidget):
 
     def handle_start_scene_action(self, action):
         if action == "expected_scene_test":
-            self.ui.test_expected_scene()
+            self.ui.test_expected_scene(TESTING_THE_EXPECTED_SCENE)
         elif action == "oracles_tables":
-            from views.main_menu import OraclesTablesView
-            self.controller.show_view(OraclesTablesView, prev_view='game dashboard', first_nav_item=None, story_index=self.story_index)   
+            self.open_oracle_table_in_modal()
+
+    def resolve_start_scene_action(self, action):
+        """Handles the action selected in the start scene dialog."""
+        self.open_oracle_table_in_modal(action)
+
+    def open_oracle_table_in_modal(self, table_name=None):
+        from views.main_menu import OraclesTablesView
+        self.controller.show_view(OraclesTablesView, prev_view='game dashboard', first_nav_item=table_name, story_index=self.story_index)
+
 
     def get_background_image(self):
         """Returns the background image path for this view."""

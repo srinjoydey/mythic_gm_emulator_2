@@ -24,7 +24,10 @@ from .mythic_tables.page_217 import NPC_BEHAVIOR_TABLE, NPC_STATISTICS_TABLE
 TABLES_INDEX = {
     "Fate Chart": FATE_CHART,
     # "Fate Question Answers": FATE_QUESTION_ANSWERS,
+    "Testing the Expected Scene": TESTING_THE_EXPECTED_SCENE,
+    "Scene Adjustment Table": SCENE_ADJUSTMENT_TABLE,
     "Random Event Focus Table": RANDOM_EVENT_FOCUS_TABLE,
+    "NPC Behavior Table": NPC_BEHAVIOR_TABLE,
     "Action 1": ACTION_1,
     "Action 2": ACTION_2,
     "Descriptor 1": DESCRIPTOR_1,
@@ -74,7 +77,4 @@ TABLES_INDEX = {
     "Terrain Descriptors": TERRAIN_DESCRIPTORS,
     "Undead Descriptors": UNDEAD_DESCRIPTORS,
     "Visions Dreams": VISIONS_DREAMS,
-    "Testing the Expected Scene": TESTING_THE_EXPECTED_SCENE,
-    "Scene Adjustment Table": SCENE_ADJUSTMENT_TABLE,
-    "NPC Behavior Table": NPC_BEHAVIOR_TABLE,
 }

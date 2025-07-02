@@ -1,7 +1,7 @@
-from functools import partial
-from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox, QMessageBox, QDialog
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView
+from PySide6.QtGui import QFont, QIcon, QColor
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
+from utils.game_dashboard_utils import align_dialog_to_button, get_dice_roll_result
 
 
 class GameDashboardUI(QWidget):
@@ -13,6 +13,7 @@ class GameDashboardUI(QWidget):
     main_menu_button_clicked = Signal()
     chaos_factor_changed = Signal(int)
     start_scene_action_selected = Signal(str)
+    start_scene_action_resolution = Signal(str)
 
     def __init__(self, parent, controller, story_index):
         super().__init__(parent)
@@ -168,8 +169,27 @@ class GameDashboardUI(QWidget):
             self.start_scene_action_selected.emit("oracles_tables")
         # No return needed; let the controller/view handle the result
 
-    def test_expected_scene(self):
-        print("Expected Scene Test Triggered")
+    def test_expected_scene(self, test_expected_scene_table_data):
+        dlg = SmallTableDialog(self, test_expected_scene_table_data)
+        dlg.show()
+        # Simulate async function call (replace with your real function)
+        def after_func():
+            dice_roll_result = get_dice_roll_result(10)[0]  # Should return 0, 1, or 2
+            if dice_roll_result <= self.chaos_factor:
+                if dice_roll_result%2 == 0:
+                    row_to_highlight = 0
+                else:
+                    row_to_highlight = 1
+            else:
+                row_to_highlight = 2
+
+            # dlg.highlight_and_close_signal.connect(self.start_scene_action_resolution)
+            dlg.highlight_and_close_signal.connect(lambda action: self.start_scene_action_resolution.emit(action))
+            # dlg.highlight_and_close_signal.connect(lambda action: print("Signal received:", action) or self.start_scene_action_resolution.emit(action))
+            dlg.highlight_and_close(row_to_highlight)
+
+        QTimer.singleShot(500, after_func)  # Simulate delay; replace as needed
+        dlg.exec()
 
 
 class CustomSceneDialog(QDialog):
@@ -222,23 +242,74 @@ class CustomSceneDialog(QDialog):
 
     def showEvent(self, event):
         super().showEvent(event)
-        # Align the top of the dialog with the "Start a Scene" button if possible
-        parent = self.parent()
-        btn = None
-        if hasattr(parent, "center_content_button_layout"):
-            for i in range(parent.center_content_button_layout.count()):
-                widget = parent.center_content_button_layout.itemAt(i).widget()
-                if isinstance(widget, QPushButton) and widget.text() == "Start a Scene":
-                    btn = widget
-                    break
-        if btn:
-            btn_pos = btn.mapToGlobal(btn.rect().topLeft())
-            dlg_geom = self.frameGeometry()
-            # Center horizontally over the button, align tops
-            x = btn_pos.x() + (btn.width() - dlg_geom.width()) // 2
-            y = btn_pos.y()
-            self.move(x, y)
+        align_dialog_to_button(self, self.parent())
 
+
+class SmallTableDialog(QDialog):
+    highlight_and_close_signal = Signal(str)
+
+    def __init__(self, parent=None, table_data=None):
+        super().__init__(parent)
+        self.setWindowFlag(Qt.FramelessWindowHint, True)
+        self.setModal(True)
+        self.setFixedSize(490, 275)
+        layout = QVBoxLayout(self)
+
+        self.table_data = table_data
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.table = QTableWidget(3, 2, self)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.horizontalHeader().setVisible(False)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionMode(QTableWidget.NoSelection)
+        self.table.setFocusPolicy(Qt.NoFocus)
+        self.table.setStyleSheet("background-color: white; border: 2px solid black;")
+
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Make columns and rows stretch to fill the dialog
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        layout.addWidget(self.table)
+        # Fill with data
+        if self.table_data:
+            for row, (col1, col2) in enumerate(self.table_data):
+                item1 = QTableWidgetItem(str(col1))
+                item1.setTextAlignment(Qt.AlignCenter)
+                item1.setFont(QFont("Arial", 14))
+                item1.setForeground(QColor("black"))  # Black color
+                self.table.setItem(row, 0, item1)
+                item2 = QTableWidgetItem(str(col2))
+                item2.setTextAlignment(Qt.AlignCenter)
+                item2.setFont(QFont("Arial", 14))
+                item2.setForeground(QColor("black"))  # Black color
+                self.table.setItem(row, 1, item2)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        align_dialog_to_button(self, self.parent())
+
+    def highlight_and_close(self, row_idx, color="yellow"):
+        for col in range(self.table.columnCount()):
+            item = self.table.item(row_idx, col)
+            if item:
+                item.setBackground(QColor(color))
+        # self.table.viewport().repaint()
+
+        # Delay closing or emitting the signal
+        QTimer.singleShot(1500, lambda: self.trigger_start_scene_action(row_idx))
+        QTimer.singleShot(3300, self.accept)  # Or whatever delay you want
+
+    def trigger_start_scene_action(self, row_idx):
+        if row_idx == 0:
+            # Expected Scene
+            self.highlight_and_close_signal.emit("Fate Chart")
+        elif row_idx == 1:
+            # Altered Scene = Scene Adjustment Table
+            self.highlight_and_close_signal.emit("Scene Adjustment Table")
+        elif row_idx == 2:
+            # Interrupt Scene = Random Event Table
+            self.highlight_and_close_signal.emit("Random Event Focus Table")
 
 class ClickableLabel(QLabel):
     # Utility wrapper for QLabel to emit a signal on click
