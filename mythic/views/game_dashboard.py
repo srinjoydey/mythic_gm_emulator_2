@@ -103,6 +103,8 @@ class CharactersList(QWidget):
         self.ui = CharactersThreadsTablesUI(self, controller, "characters", self.story_index, existing_data)
         self.ui.search_for_suggestions.connect(self.send_matching_suggestions_for_row)
         self.ui.row_clicked.connect(self.receive_clicked_row_data)
+        self.ui.row_data_edited.connect(self.receive_edited_row_data)
+        self.ui.close_table.connect(self.navigate_to_game_dashboard)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
         
     def send_matching_suggestions_for_row(self, current_typed_data_dict):
@@ -120,51 +122,47 @@ class CharactersList(QWidget):
                 master_id = result.master_id
             self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id, prev_view='characters list')
 
-    def receive_edited_rows_data(self, data):
-        for row, name_type_data in data.items():
-            # Add data to respective master tables
-            master_tables_model = MODEL_MAP.get(name_type_data['type'])
-            if master_tables_model:
-                duplicates = session.query(master_tables_model).filter(
-                    master_tables_model.name == name_type_data["name"],
-                    master_tables_model.story_index == self.story_index
-                ).all()
+    def receive_edited_row_data(self, data):
+        # Add data to respective master tables
+        master_tables_model = MODEL_MAP.get(data['type'])
+        if master_tables_model:
+            duplicates = session.query(master_tables_model).filter(
+                master_tables_model.name == data["name"],
+                master_tables_model.story_index == self.story_index
+            ).all()
 
-                if duplicates:
-                    user_choice = self.ui.prompt_duplicate_action(name_type_data["name"])
+            if duplicates:
+                user_choice = self.ui.prompt_duplicate_action(data["name"])
 
-                    if user_choice == "overwrite":
-                        # Dealing only with the first entry in case of multiple duplicates for now. Shall add selection pop-up to select exact duplicate later.
-                        duplicates[0].name = name_type_data["name"]
-                        duplicates[0].story_index = self.story_index
-                        existing_master_data_id = duplicates[0].id
+                if user_choice == "overwrite":
+                    # Dealing only with the first entry in case of multiple duplicates for now. Shall add selection pop-up to select exact duplicate later.
+                    duplicates[0].name = data["name"]
+                    duplicates[0].story_index = self.story_index
+                    existing_master_data_id = duplicates[0].id
 
-                        session.query(self.characters_list_model).filter(self.characters_list_model.row == row).update({
-                            "name": name_type_data["name"],
-                            "type": name_type_data["type"],
-                            "master_id": existing_master_data_id
-                            })
-                        continue
+                    session.query(self.characters_list_model).filter(self.characters_list_model.row == data['row']).update({
+                        "name": data["name"],
+                        "type": data["type"],
+                        "master_id": existing_master_data_id
+                        })
 
-                    elif user_choice == "remove":
-                        continue
+                elif user_choice == "remove":
+                    pass
 
-                    continue  # Skip to next row after handling duplicate
+            new_master_data = master_tables_model(name=data["name"], story_index=self.story_index)
+            session.add(new_master_data)
+            session.flush()
+            new_master_data_id = new_master_data.id
+            
+            new_notes_add = Notes(type=data["type"], type_id=new_master_data_id, story_index=self.story_index)
+            session.add(new_notes_add)
 
-                new_master_data = master_tables_model(name=name_type_data["name"], story_index=self.story_index)
-                session.add(new_master_data)
-                session.flush()
-                new_master_data_id = new_master_data.id
-                
-                new_notes_add = Notes(type=name_type_data["type"], type_id=new_master_data_id, story_index=self.story_index)
-                session.add(new_notes_add)
-
-                # Update the dynamic characters list table specific to the story
-                session.query(self.characters_list_model).filter(self.characters_list_model.row == row).update({
-                    "name": name_type_data["name"],
-                    "type": name_type_data["type"],
-                    "master_id": new_master_data_id
-                    })
+            # Update the dynamic characters list table specific to the story
+            session.query(self.characters_list_model).filter(self.characters_list_model.row == data['row']).update({
+                "name": data["name"],
+                "type": data["type"],
+                "master_id": new_master_data_id
+                })
         session.commit()  # Commit once at the end
 
     def get_background_image(self):
@@ -173,6 +171,10 @@ class CharactersList(QWidget):
             return self.ui.bg_image_path  # UI manages background image selection
         except AttributeError:
             pass
+
+    def navigate_to_game_dashboard(self):
+        """Navigates back to the game dashboard."""
+        self.controller.show_view(GameDashboardView, story_index=self.story_index)
 
 class ThreadsList(QWidget):
     """Handles main menu logic & navigation."""

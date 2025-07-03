@@ -97,12 +97,18 @@ class GameDashboardUI(QWidget):
 
         self.center_content_button_layout.setSpacing(65)
         self.create_chaos_factor_counter(self.center_content_frame)
-        btn = QPushButton("Start a Scene", self.center_content_frame)
-        btn.setFont(QFont("Arial", button_font_size))
-        btn.setMinimumSize(button_width, button_height)
-        btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        btn.clicked.connect(self.start_scene_dialog)
-        self.center_content_button_layout.addWidget(btn)
+
+        buttons = [
+            ("Start a Scene", self.start_scene_dialog),
+            ("End a Scene", self.end_scene_dialog),
+        ]
+        for text, dialog in buttons:
+            btn = QPushButton(text, self.center_content_frame)
+            btn.setFont(QFont("Arial", button_font_size))
+            btn.setMinimumSize(button_width, button_height)
+            btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            btn.clicked.connect(dialog)
+            self.center_content_button_layout.addWidget(btn)
 
     def create_right_content_buttons(self):
         """Creates buttons dynamically with optimized layout."""
@@ -191,6 +197,8 @@ class GameDashboardUI(QWidget):
         QTimer.singleShot(500, after_func)  # Simulate delay; replace as needed
         dlg.exec()
 
+    def end_scene_dialog(self):
+        pass
 
 class CustomSceneDialog(QDialog):
     def __init__(self, parent=None):
@@ -330,6 +338,8 @@ class FocusLineEdit(QLineEdit):
 
 
 class CharactersThreadsTablesUI(QWidget):
+    row_data_edited = Signal(dict)
+    close_table = Signal()
     """UI Layout with both horizontal and vertical scrolling."""
     search_for_suggestions = Signal(dict)
     row_clicked = Signal(dict)
@@ -341,7 +351,6 @@ class CharactersThreadsTablesUI(QWidget):
         self.table_label = table_label
         self.story_index = story_index
         self.existing_data = existing_data
-        self.edited_rows_data_dict = {}
 
         rows_to_be_updated = self.existing_data.keys()
         self.setStyleSheet("background-color: white;")
@@ -369,12 +378,7 @@ class CharactersThreadsTablesUI(QWidget):
             background-color: white;
             color: maroon;
         """)
-        close_button.clicked.connect(lambda: (
-            self.controller.current_view.receive_edited_rows_data(
-                self.send_edited_rows_data_dict()),
-            self.controller.show_view(
-                GameDashboardView, story_index=self.story_index)
-        ))
+        close_button.clicked.connect(self.close_table)
         close_row_layout = QHBoxLayout(close_row_container)
         close_row_layout.addWidget(title_label, alignment=Qt.AlignCenter)
         close_row_layout.addWidget(close_button, alignment=Qt.AlignRight)
@@ -575,26 +579,29 @@ class CharactersThreadsTablesUI(QWidget):
     def edited_row_data(self):
         sender = self.sender()
         row_index = sender.property("row_index")
+        # ...inside edited_row_data...
         if self.table_label == "characters":
             # sender is dropdown_cell
             table_cell = None
-            # Find the table_cell for this row
             for le in self.scroll_widget.findChildren(QLineEdit):
                 if le.property("row_index") == row_index:
                     table_cell = le
                     break
             if table_cell and sender.currentText():
-                self.edited_rows_data_dict[row_index] = {
+                data = {
+                    "row": row_index,
                     "name": table_cell.text(),
                     "type": sender.currentText()
                 }
+                self.row_data_edited.emit(data)
                 table_cell.clearFocus()
         elif self.table_label == "threads":
-            # sender is table_cell
             if sender.text():
-                self.edited_rows_data_dict[row_index] = {
+                data = {
+                    "row": row_index,
                     "thread": sender.text()
                 }
+                self.row_data_edited.emit(data)
                 sender.clearFocus()
 
     def dropdown_selection_handler(self, dropdown_cell, table_cell):
@@ -604,9 +611,6 @@ class CharactersThreadsTablesUI(QWidget):
                 dropdown_cell.setEnabled(False)
                 table_cell.setReadOnly(True)
         return handler
-
-    def send_edited_rows_data_dict(self):
-        return self.edited_rows_data_dict
     
     def prompt_duplicate_action(self, name):
             msg_box = QMessageBox(self)
