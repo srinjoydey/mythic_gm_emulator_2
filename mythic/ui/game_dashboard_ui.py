@@ -161,7 +161,9 @@ class GameDashboardUI(QWidget):
         def update_counter(delta):
             value = int(self.counter_label.text()) + delta
             self.counter_label.setText(str(value))
+            self.chaos_factor = value
             self.chaos_factor_changed.emit(value)
+            
 
         minus_btn.clicked.connect(lambda: update_counter(-1))
         plus_btn.clicked.connect(lambda: update_counter(1))

@@ -14,26 +14,28 @@ class GameDashboardView(QWidget):
         self.controller = controller
         self.story_index = story_index
         # Fetch story data
-        story = session.query(StoriesIndex).filter(StoriesIndex.index == self.story_index).first()
-        self.story_name = story.name
-        self.description = story.description
-        self.chaos_factor = story.chaos_factor
+        self.story = session.query(StoriesIndex).filter(StoriesIndex.index == self.story_index).first()
+        self.story_name = self.story.name
+        self.description = self.story.description
+        self.chaos_factor = self.story.chaos_factor
 
         # If chaos_factor is None, set to 5 and save to db immediately
         if self.chaos_factor is None:
             self.chaos_factor = 5
-            story.chaos_factor = 5
+            self.story.chaos_factor = 5
             session.flush()
+            session.commit()
 
         # Attach UI with navigation logic
         self.ui = GameDashboardUI(self, controller, self.story_index)
-        self.ui.oracles_tables_button_clicked.connect(lambda: self.navigate_to_oracles_tables())
+        self.ui.oracles_tables_button_clicked.connect(self.navigate_to_oracles_tables)
         self.ui.characters_button_clicked.connect(lambda: self.navigate_to_characters_list(self.story_index))
         self.ui.threads_button_clicked.connect(lambda: self.navigate_to_threads_list(self.story_index))
         self.ui.gallery_modal_button_clicked.connect(lambda: self.navigate_to_gallery_modal(self.story_index))
         self.ui.main_menu_button_clicked.connect(lambda: self.navigate_to_main_menu())
         self.ui.start_scene_action_selected.connect(self.handle_start_scene_action)
         self.ui.start_scene_action_resolution.connect(self.resolve_start_scene_action)
+        self.ui.chaos_factor_changed.connect(self.post_updated_chaos_factor)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
     def navigate_to_oracles_tables(self):
@@ -69,6 +71,11 @@ class GameDashboardView(QWidget):
         
         self.controller.show_view(OraclesTablesView, prev_view='game dashboard', first_nav_item=table_name, story_index=self.story_index, chaos_factor = self.chaos_factor)
 
+    def post_updated_chaos_factor(self, new_chaos_factor):
+        self.story.chaos_factor = new_chaos_factor
+        session.flush()
+        session.commit()
+        # Update the UI or perform any necessary actions with the new chaos factor
 
     def get_background_image(self):
         """Returns the background image path for this view."""
