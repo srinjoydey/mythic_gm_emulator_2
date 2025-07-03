@@ -25,8 +25,8 @@ def get_dice_roll_result(sides_of_dice, flutter=False):
     if not flutter:
         roll.append(random.randint(1, sides_of_dice))
     else:
-        flutter_count_options = list(range(1, 6))
-        flutter_count = random.choices(flutter_count_options, weights=[1, 2, 3, 2, 1], k=1)[0]
+        flutter_count_options = list(range(1, 5))
+        flutter_count = random.choices(flutter_count_options, weights=[2, 2, 1, 1], k=1)[0]
         for _ in range(flutter_count):
             roll.append(random.randint(1, sides_of_dice))
 

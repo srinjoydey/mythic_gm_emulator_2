@@ -38,7 +38,7 @@ class GameDashboardView(QWidget):
 
     def navigate_to_oracles_tables(self):
         from views.main_menu import OraclesTablesView
-        self.controller.show_view(OraclesTablesView, prev_view='game dashboard', first_nav_item=None, story_index=self.story_index)
+        self.controller.show_view(OraclesTablesView, prev_view='game dashboard', first_nav_item=None, story_index=self.story_index, chaos_factor=self.chaos_factor)
 
     def navigate_to_characters_list(self, story_index):
         self.controller.show_view(CharactersList, story_index=story_index)
@@ -66,7 +66,8 @@ class GameDashboardView(QWidget):
 
     def open_oracle_table_in_modal(self, table_name=None):
         from views.main_menu import OraclesTablesView
-        self.controller.show_view(OraclesTablesView, prev_view='game dashboard', first_nav_item=table_name, story_index=self.story_index)
+        
+        self.controller.show_view(OraclesTablesView, prev_view='game dashboard', first_nav_item=table_name, story_index=self.story_index, chaos_factor = self.chaos_factor)
 
 
     def get_background_image(self):

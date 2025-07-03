@@ -3,6 +3,7 @@ from PySide6.QtGui import QFont, QIcon
 from PySide6.QtCore import Qt, Signal, QTimer, QSize, Slot
 from views.game_dashboard import GameDashboardView
 import warnings
+from utils.main_menu_utils import scroll_to_widget
 
 
 # To suppress RuntimeWarning that arises when disconnecting signals that may not have been connected in ln 350
@@ -15,7 +16,6 @@ class MainMenuUI(QWidget):
     existing_story_btn_clicked = Signal()
     oracles_tables_btn_clicked = Signal()
     gallery_btn_clicked = Signal()
-    artifacts_btn_clicked = Signal()
 
     def __init__(self, parent, controller):
         super().__init__(parent)
@@ -61,7 +61,6 @@ class MainMenuUI(QWidget):
             ("Existing Story", self.existing_story_btn_clicked),
             ("Oracles / Tables", self.oracles_tables_btn_clicked),
             ("Gallery", self.gallery_btn_clicked),
-            ("Artifacts", self.artifacts_btn_clicked),
         ]
         button_width, button_height = 320, 60
         button_font_size = 20
@@ -492,13 +491,15 @@ class ExistingStoryUI(QWidget):
 class OraclesTablesUI(QWidget):
     """A fullscreen view with a left-hand vertical navigation pane and a close button row."""
     nav_item_selected = Signal(str)
+    nav_item_double_clicked = Signal(str)
     close_oracles_tables_window = Signal(str)
 
-    def __init__(self, parent, controller, nav_items, first_nav_item, prev_view):
+    def __init__(self, parent, controller, nav_items, first_nav_item, prev_view, chaos_factor):
         super().__init__(parent)
         self.parent_view = parent
         self.controller = controller
         self.prev_view = prev_view
+        self.chaos_factor = chaos_factor
         self.nav_buttons = []
         self.selected_nav_btn = None
         self.nav_btn_map = {}
@@ -572,7 +573,7 @@ class OraclesTablesUI(QWidget):
         self.nav_layout.setSpacing(0)
 
         for nav_item in nav_items:
-            btn = QPushButton(nav_item, self.nav_frame)
+            btn = DoubleClickableButton(nav_item, nav_item, self.nav_frame)
             btn.setFont(QFont("Arial", 13))
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             btn.setStyleSheet("""
@@ -580,6 +581,7 @@ class OraclesTablesUI(QWidget):
                 color: white;
             """)
             btn.clicked.connect(lambda checked, b=btn, item=nav_item: self.handle_nav_click(b, item))
+            btn.doubleClicked.connect(lambda item=nav_item, b=btn: self.handle_nav_double_click(b, item))
             self.nav_layout.addWidget(btn)
             self.nav_buttons.append(btn)
             self.nav_btn_map[nav_item] = btn
@@ -691,12 +693,17 @@ class OraclesTablesUI(QWidget):
         chaos_label.setAlignment(Qt.AlignCenter)
         chaos_label.setStyleSheet("background-color: #eee; color: black; border: 1px solid #aaa; padding: 8px;")
         table_layout.addWidget(chaos_label, chaos_row, 0)
-
+        
+        cf_highlight_widget = None
         for i in range(1, 10):
             cf_label = QLabel(str(i), self.content_nav_frame)
             cf_label.setFont(QFont("Arial", 13, QFont.Bold))
             cf_label.setAlignment(Qt.AlignCenter)
-            cf_label.setStyleSheet("background-color: #eee; color: black; border: 1px solid #aaa; padding: 8px;")
+            if i == self.chaos_factor:
+                cf_label.setStyleSheet("background-color: yellow; color: black; border: 2px solid #d4af37; padding: 8px;")
+                cf_highlight_widget = cf_label
+            else:
+                cf_label.setStyleSheet("background-color: #eee; color: black; border: 1px solid #aaa; padding: 8px;")
             table_layout.addWidget(cf_label, chaos_row, i)
 
         # Set the new layout to the content_nav_frame
@@ -705,7 +712,11 @@ class OraclesTablesUI(QWidget):
             QWidget().setLayout(old_layout)
         self.content_nav_frame.setLayout(table_layout)
 
-    def render_random_event_focus_table(self, nav_item, table):
+        # Scroll to the highlighted chaos factor cell if needed
+        if cf_highlight_widget:
+            scroll_to_widget(self.content_nav_scroll_area, cf_highlight_widget)
+
+    def render_non_meaning_tables(self, nav_item, table):
         """
         Renders a table with 2 columns: number (1/5 width), string (4/5 width).
         `table` should be a list of 10 (number, string) tuples.
@@ -725,6 +736,8 @@ class OraclesTablesUI(QWidget):
 
         row_count = len(table)
         for row, (num_range, text) in enumerate(table):
+            if isinstance(num_range, str) and '-' in num_range and ' - ' not in num_range:
+                num_range = num_range.replace('-', ' - ')
             num_label = QLabel(str(num_range), self.content_nav_frame)
             num_label.setFont(QFont("Arial", 13, QFont.Bold))
             num_label.setAlignment(Qt.AlignCenter)
@@ -791,64 +804,127 @@ class OraclesTablesUI(QWidget):
     def close_oracles_tables(self):
         self.close_oracles_tables_window.emit(self.prev_view)
 
+    def handle_nav_double_click(self, btn, nav_item):
+        # Only emit if this button is already selected
+        if self.selected_nav_btn is btn:
+            self.nav_item_double_clicked.emit(nav_item)
 
-class ArtifactsUI(QWidget):
-    """UI Layout for Main Menu with buttons and styling."""
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
+    def highlight_roll_result(self, row_indices, table_name=None):
+        self._highlight_sequence = row_indices
+        self._highlight_sequence_pos = 0
 
-        # Define background image path (now managed here)
-        self.bg_image_path = "visuals/backgrounds/main_menu.jpg"
+        def clear_highlights():
+            if table_name == "Scene Adjustment Table":
+                row_max = 7
+                col_max = 2
+            elif table_name == "Random Event Focus Table":
+                row_max = 12
+                col_max = 2
+            else:
+                row_max = 25
+                col_max = 8
+            layout = self.content_nav_frame.layout()
+            for r in range(1, row_max + 1):
+                for c in range(col_max):
+                    item = layout.itemAtPosition(r, c)
+                    if item:
+                        widget = item.widget()
+                        if widget:
+                            widget.setStyleSheet("background-color: white; color: black; border: 1px solid #aaa; padding: 6px;")
 
-        # Configure grid layout dynamically
-        self.layout = QGridLayout(self)
-        self.layout.setSpacing(10)
+        def do_highlight():
+            clear_highlights()
+            idx = self._highlight_sequence[self._highlight_sequence_pos]
+            layout = self.content_nav_frame.layout()
+            highlight_color = "yellow"
+            scroll_widget = None
 
-        for i in range(5):
-            self.layout.setColumnStretch(i, 1)
-            self.layout.setRowStretch(i, 1)
+            if table_name == "Scene Adjustment Table":
+                # Map idx 1-6 to rows 1-6, idx 7-10 to row 7
+                if idx in (1, 2, 3, 4, 5, 6):
+                    row_to_highlight = idx - 1  # 0-based row index
+                elif idx in (7, 8, 9, 10):
+                    row_to_highlight = 6  # 7th row (index 6)
+                else:
+                    row_to_highlight = None
+                if row_to_highlight is not None:
+                    for col in (0, 1):
+                        item = layout.itemAtPosition(row_to_highlight, col)
+                        if item:
+                            widget = item.widget()
+                            if widget:
+                                widget.setStyleSheet(f"background-color: {highlight_color}; color: black; border: 1px solid #aaa; padding: 15px;")
+                                if scroll_widget is None:
+                                    scroll_widget = widget
 
-        # Title Label (Centered)
-        self.title_label = QLabel("Mythic GM Emulator", self)
-        self.title_label.setFont(QFont("Arial", 28))
-        # Apply transparent background
-        self.title_label.setStyleSheet("""
-            background-color: transparent;
-            padding: 10px;
-            color: maroon;
-            font-weight: bold;
-            font-style: italic;            
-        """)
-        self.layout.addWidget(self.title_label, 1, 1, 1, 1)
+            elif table_name == "Random Event Focus Table":
+                # idx is 1-100, need to find which row's range contains idx
+                found_row = None
+                for row in range(12):
+                    item = layout.itemAtPosition(row, 0)
+                    if item:
+                        widget = item.widget()
+                        if widget:
+                            text = widget.text()
+                            # Parse range like '1 - 5'
+                            if '-' in text:
+                                parts = text.replace(' ', '').split('-')
+                                start = int(parts[0])
+                                end = int(parts[1])
+                                if start <= idx <= end:
+                                    found_row = row
+                                    break
+                            else:
+                                # Single value
+                                if int(text) == idx:
+                                    found_row = row
+                                    break
+                if found_row is not None:
+                    for col in (0, 1):
+                        item = layout.itemAtPosition(found_row, col)
+                        if item:
+                            widget = item.widget()
+                            if widget:
+                                widget.setStyleSheet(f"background-color: {highlight_color}; color: black; border: 1px solid #aaa; padding: 15px;")
+                                if scroll_widget is None:
+                                    scroll_widget = widget
 
-        # Button Frame (Bottom-right placement)
-        self.button_frame = QFrame(self)
-        self.button_layout = QVBoxLayout(self.button_frame)
-        self.button_layout.setContentsMargins(0, 100, 0, 0) 
-        self.layout.addWidget(self.button_frame, 1, 2, 2, 2, alignment=Qt.AlignBottom | Qt.AlignRight)
+            else:
+                block = idx // 25
+                row_in_block = idx % 25
+                col_index = block * 2
+                col_data = block * 2 + 1
+                row = row_in_block + 1
 
-        self.create_buttons()      
+                # We'll scroll to the first cell (index column)
+                for col in (col_index, col_data):
+                    item = layout.itemAtPosition(row, col)
+                    if item:
+                        widget = item.widget()
+                        if widget:
+                            widget.setStyleSheet(f"background-color: {highlight_color}; color: black; border: 1px solid #aaa; padding: 6px;")
+                            if scroll_widget is None:
+                                scroll_widget = widget
 
-    def create_buttons(self):
-        """Creates buttons dynamically with optimized layout."""
-        from views.main_menu import NewStoryView, ExistingStoryView, OraclesTablesView, GalleryView, ArtifactsView
+            # Scroll to the highlighted widget if needed
+            if scroll_widget:
+                scroll_to_widget(self.content_nav_scroll_area, scroll_widget)
 
-        # Define menu buttons dynamically
-        self.buttons = [
-            ("New Story", NewStoryView),
-            ("Existing Story", ExistingStoryView),
-            ("Oracles / Tables", OraclesTablesView),
-            ("Gallery", GalleryView),
-            ("Artifacts", ArtifactsView),
-        ]        
-        button_width, button_height = 250, 60
-        button_font_size = 20
+            self._highlight_sequence_pos += 1
+            if self._highlight_sequence_pos < len(self._highlight_sequence):
+                QTimer.singleShot(2000, do_highlight)
+            # After the last one, leave the highlight
 
-        for text, view in self.buttons:
-            btn = QPushButton(text, self.button_frame)
-            btn.setFont(QFont("Arial", button_font_size))
-            btn.setMinimumSize(button_width, button_height)
-            btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            btn.clicked.connect(lambda checked, v=view: self.controller.show_view(v))
-            self.button_layout.addWidget(btn)
+        # Schedule the first highlight with a timer to ensure consistent timing
+        QTimer.singleShot(500, do_highlight)
+
+class DoubleClickableButton(QPushButton):
+    doubleClicked = Signal(str)  # Will emit the nav_item/table name
+
+    def __init__(self, nav_item, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.nav_item = nav_item
+
+    def mouseDoubleClickEvent(self, event):
+        self.doubleClicked.emit(self.nav_item)
+        super().mouseDoubleClickEvent(event)

@@ -7,6 +7,7 @@ from models.master_tables import StoriesIndex, Characters, Places, Items, Notes,
 from models.story_tables import create_dynamic_model, CharactersList as CharactersListModel, ThreadsList as ThreadsListModel
 import os
 import glob
+from utils.game_dashboard_utils import get_dice_roll_result
 
 
 class MainMenu(QWidget):
@@ -21,7 +22,6 @@ class MainMenu(QWidget):
         self.ui.existing_story_btn_clicked.connect(self.handle_existing_story_btn)
         self.ui.oracles_tables_btn_clicked.connect(self.get_full_oracles_tables)
         self.ui.gallery_btn_clicked.connect(self.get_full_gallery)
-        self.ui.artifacts_btn_clicked.connect(lambda: self.controller.show_view(ArtifactsView))
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
     def handle_existing_story_btn(self):
@@ -188,20 +188,22 @@ class ExistingStoryView(QWidget):
 
 class OraclesTablesView(QWidget):
     """Handles main menu layout & navigation."""
-    def __init__(self, parent, controller, prev_view, story_index=None, first_nav_item=None):
+    def __init__(self, parent, controller, prev_view, story_index=None, chaos_factor=None, first_nav_item=None):
         # from ui.main_menu_ui import OraclesTablesUI
         from ui.main_menu_ui import OraclesTablesUI
 
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
+        self.chaos_factor = chaos_factor
 
         # Define background image path (handled by MainAppWindow)
         self.bg_image_path = "assets/page1_bg.jpg"
 
         # Attach UI with navigation logic
-        self.ui = OraclesTablesUI(self, controller, list(TABLES_INDEX.keys()), first_nav_item, prev_view)
+        self.ui = OraclesTablesUI(self, controller, list(TABLES_INDEX.keys()), first_nav_item, prev_view, chaos_factor)
         self.ui.nav_item_selected.connect(self.get_table_data)
+        self.ui.nav_item_double_clicked.connect(self.roll_on_double_clicked_table)
         self.ui.close_oracles_tables_window.connect(self.navigate_to_previous_view)
         # Layout to ensure proper expansion
         self.setLayout(self.ui.layout)
@@ -210,8 +212,8 @@ class OraclesTablesView(QWidget):
         table = TABLES_INDEX.get(nav_item)
         if nav_item == "Fate Chart":
             self.ui.render_fate_chart(nav_item, table)
-        elif nav_item == "Random Event Focus Table":
-            self.ui.render_random_event_focus_table(nav_item, table)
+        elif nav_item in ["Scene Adjustment Table", "Random Event Focus Table"]:
+            self.ui.render_non_meaning_tables(nav_item, table)
         else:
             self.ui.render_d100_table(nav_item, table)
 
@@ -222,22 +224,20 @@ class OraclesTablesView(QWidget):
             from views.game_dashboard import GameDashboardView
             self.controller.show_view(GameDashboardView, story_index=self.story_index)
 
-
-class ArtifactsView(QWidget):
-    """Handles main menu layout & navigation."""
-    def __init__(self, parent, controller):
-        from ui.main_menu_ui import ArtifactsUI
-
-        super().__init__(parent)
-        self.controller = controller
-
-        # Define background image path (handled by MainAppWindow)
-        self.bg_image_path = "assets/page1_bg.jpg"
-
-        # Attach UI with navigation logic
-        self.ui = ArtifactsUI(self, controller)
-
-        # Layout to ensure proper expansion
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.ui)
-        layout.setContentsMargins(0, 0, 0, 0)  # Remove margins for full expansion
+    def roll_on_double_clicked_table(self, table_name):
+        if table_name != "Fate Chart":
+            if table_name == "Scene Adjustment Table":
+                result = get_dice_roll_result(10, flutter=False)
+                # self.ui.display_roll_result(table_name, result)
+                print("Rolling result:", *result)
+                self.ui.highlight_roll_result(result, table_name)
+            elif table_name == "Random Event Focus Table":
+                result = get_dice_roll_result(100, flutter=False)
+                # self.ui.display_roll_result(table_name, result)
+                print("Rolling result:", *result)
+                self.ui.highlight_roll_result(result, table_name)
+            else:
+                result = get_dice_roll_result(100, flutter=True)
+                # self.ui.display_roll_result(table_name, result)
+                print("Rolling result:", *result)
+                self.ui.highlight_roll_result(result)
