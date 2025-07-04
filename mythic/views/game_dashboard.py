@@ -130,56 +130,89 @@ class CharactersList(QWidget):
             self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id, prev_view='characters list')
 
     def receive_edited_row_data(self, data):
-        # Add data to respective master tables
+        from views.gallery import GalleryView
+
         master_tables_model = MODEL_MAP.get(data['type'])
-        if master_tables_model:
-            duplicates = session.query(master_tables_model).filter(
+        data_action = data.get("action")
+        print(f"data action: {data_action}")
+
+        duplicates = session.query(master_tables_model).filter(
+            master_tables_model.name == data["name"],
+            master_tables_model.story_index == self.story_index
+        ).all()
+        print(f"duplicates: {len(duplicates)})")
+
+        if data_action == "delete":
+            # Remove from story-specific list
+            self.delete_row_data(data, master_tables_model)
+
+        elif duplicates:
+            user_choice = self.ui.prompt_duplicate_action(data["name"])
+
+            if user_choice == "Create New":
+                self.create_row_data(data, master_tables_model)
+            elif user_choice == "Select Existing":
+                self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=duplicates[0].id, prev_view='characters list', search_with=data['name'])
+            elif user_choice == "Overwrite Existing":
+                self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=duplicates[0].id, prev_view='characters list', search_with=data['name'])
+            elif user_choice == "Remove Entry":
+                self.delete_row_data(data, master_tables_model)
+        else:
+            # No duplicates, create new entry
+            self.create_row_data(data, master_tables_model)
+
+    def create_row_data(self, data, master_tables_model):
+        new_master_data = master_tables_model(name=data["name"], story_index=self.story_index)
+        session.add(new_master_data)
+        session.flush()
+        new_master_data_id = new_master_data.id
+
+        new_notes_add = Notes(type=data["type"], type_id=new_master_data_id, story_index=self.story_index)
+        session.add(new_notes_add)
+
+        # Update the dynamic characters list table specific to the story
+        session.query(self.characters_list_model).filter(self.characters_list_model.row == data['row']).update({
+            "name": data["name"],
+            "type": data["type"],
+            "master_id": new_master_data_id
+        })
+        session.flush()
+        session.commit()  # Commit once at the end
+        self.controller.show_view(CharactersList, story_index=self.story_index)
+
+    def delete_row_data(self, data, master_tables_model):
+        session.query(self.characters_list_model).filter(self.characters_list_model.row == data['row']).update({
+                    "name": None,
+                    "type": None,
+                    "master_id": None
+                })
+        # Handle deletion of the row
+        session.flush
+        session.commit()
+        deletion_type = self.ui.prompt_deletion_type()
+        self.controller.show_view(CharactersList, story_index=self.story_index)
+
+        if deletion_type == "Delete from Story":
+            # Also mark the master data as inactive
+            session.query(master_tables_model).filter(
                 master_tables_model.name == data["name"],
                 master_tables_model.story_index == self.story_index
-            ).all()
+            ).update({"active": False})
+            # Mark related notes as inactive
+            session.query(Notes).filter(Notes.story_index == self.story_index, Notes.type == data['type'], Notes.type_id == data["master_id"]).update({"active": False})
 
-            if duplicates:
-                user_choice = self.ui.prompt_duplicate_action(data["name"])
+        if deletion_type == "Delete from Game":
+            # Also delete from the master data
+            session.query(master_tables_model).filter(
+                master_tables_model.name == data["name"],
+                master_tables_model.story_index == self.story_index
+            ).delete()
+            # Delete related notes
+            session.query(Notes).filter(Notes.story_index == self.story_index, Notes.type == data['type'], Notes.type_id == data["master_id"]).delete()
 
-                if user_choice == "Create New":
-                    pass
-                elif user_choice == "Select Existing":
-                    pass
-                elif user_choice == "Overwrite Existing":
-                    pass
-                elif user_choice == "Remove Entry":
-                    pass
+        session.commit()
+        return
 
-                if user_choice == "overwrite":
-                    # Dealing only with the first entry in case of multiple duplicates for now. Shall add selection pop-up to select exact duplicate later.
-                    duplicates[0].name = data["name"]
-                    duplicates[0].story_index = self.story_index
-                    existing_master_data_id = duplicates[0].id
-
-                    session.query(self.characters_list_model).filter(self.characters_list_model.row == data['row']).update({
-                        "name": data["name"],
-                        "type": data["type"],
-                        "master_id": existing_master_data_id
-                        })
-
-                elif user_choice == "remove":
-                    pass
-
-            new_master_data = master_tables_model(name=data["name"], story_index=self.story_index)
-            session.add(new_master_data)
-            session.flush()
-            new_master_data_id = new_master_data.id
-            
-            new_notes_add = Notes(type=data["type"], type_id=new_master_data_id, story_index=self.story_index)
-            session.add(new_notes_add)
-
-            # Update the dynamic characters list table specific to the story
-            session.query(self.characters_list_model).filter(self.characters_list_model.row == data['row']).update({
-                "name": data["name"],
-                "type": data["type"],
-                "master_id": new_master_data_id
-                })
-        session.commit()  # Commit once at the end
 
     def get_background_image(self):
         """Returns the background image path for this view."""

@@ -280,7 +280,7 @@ class GalleryUI(QWidget):
         content_layout.addWidget(self.notes_scroll, 3, 0, 2, 9)
 
         self.layout.addWidget(content_frame, 1, 3, 10, 10)
-        
+
         if search_with is not None:
             self.search_box.setText(search_with)
             self.emit_current_search_options()
@@ -299,6 +299,19 @@ class GalleryUI(QWidget):
 
     def handle_nav_click(self, btn, nav_type, nav_id):
         # Highlight the selected button
+        # If btn is None, select the first available button
+        if btn is None:
+            if self.nav_buttons:
+                btn = self.nav_buttons[0]
+                # Try to get nav_type and nav_id from the button mapping
+                for (type_, id_), b in self.nav_btn_map.items():
+                    if b == btn:
+                        nav_type = type_
+                        nav_id = id_
+                        break
+            else:
+                return  # No buttons to select, exit gracefully
+
         for b in self.nav_buttons:
             b.setStyleSheet("""
                 padding: 10px;

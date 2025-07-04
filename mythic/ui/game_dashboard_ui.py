@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView
-from PySide6.QtGui import QFont, QIcon, QColor
+from PySide6.QtGui import QFont, QIcon, QColor, QPixmap
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
 from utils.game_dashboard_utils import align_dialog_to_button, get_dice_roll_result
 
@@ -169,7 +169,8 @@ class GameDashboardUI(QWidget):
         plus_btn.clicked.connect(lambda: update_counter(1))
 
     def start_scene_dialog(self):
-        dlg = CustomSceneDialog(self)
+        button_labels = ["Test the Expected Scene", "Go to Fate Chart / Oracle", "Cancel"]
+        dlg = TwoOptionsCancelDialog(self, button_labels)
         result = dlg.exec()
         if result == 1:
             self.start_scene_action_selected.emit("expected_scene_test")
@@ -202,8 +203,8 @@ class GameDashboardUI(QWidget):
     def end_scene_dialog(self):
         pass
 
-class CustomSceneDialog(QDialog):
-    def __init__(self, parent=None):
+class TwoOptionsCancelDialog(QDialog):
+    def __init__(self, parent=None, button_labels_list=None):
         super().__init__(parent)
         # self.setWindowTitle("Start a New Scene")
         self.setWindowFlag(Qt.FramelessWindowHint, True)
@@ -230,13 +231,16 @@ class CustomSceneDialog(QDialog):
             }
         """)
 
+        self.button_1_label = button_labels_list[0]
+        self.button_2_label = button_labels_list[1]
+
         layout = QVBoxLayout(self)
 
         button_row = QHBoxLayout()
-        self.test_btn = QPushButton("Test the Expected Scene", self)
-        self.oracle_btn = QPushButton("Go to Fate Chart / Oracle", self)
-        button_row.addWidget(self.test_btn)
-        button_row.addWidget(self.oracle_btn)
+        self.button_1 = QPushButton(self.button_1_label, self)
+        self.button_2 = QPushButton(self.button_2_label, self)
+        button_row.addWidget(self.button_1)
+        button_row.addWidget(self.button_2)
         layout.addLayout(button_row)
 
         cancel_row = QHBoxLayout()
@@ -246,13 +250,17 @@ class CustomSceneDialog(QDialog):
         cancel_row.addStretch(1)        
         layout.addLayout(cancel_row)
 
-        self.test_btn.clicked.connect(lambda: self.done(1))
-        self.oracle_btn.clicked.connect(lambda: self.done(2))
-        self.cancel_btn.clicked.connect(lambda: self.done(0))
+        self.button_1.clicked.connect(lambda: self.choose_and_accept(self.button_1_label))
+        self.button_2.clicked.connect(lambda: self.choose_and_accept(self.button_2_label))
+        self.cancel_btn.clicked.connect(lambda: self.choose_and_accept(None))
 
     def showEvent(self, event):
         super().showEvent(event)
         align_dialog_to_button(self, self.parent())
+
+    def choose_and_accept(self, label):
+        self.selected_label = label
+        self.accept()
 
 
 class SmallTableDialog(QDialog):
@@ -423,7 +431,7 @@ class CharactersThreadsTablesUI(QWidget):
                 color: black;
                 font-weight: bold;
             """)
-            scroll_layout.addWidget(section_label_widget, row_index, 0, 5, 2)
+            scroll_layout.addWidget(section_label_widget, row_index, 0, 5, 3)
 
             for i in range(5):
                 border_bottom = "2px solid black" if i == 4 else "0.1px solid black"
@@ -440,7 +448,14 @@ class CharactersThreadsTablesUI(QWidget):
                     color: black;
                     font-weight: bold;
                 """)
-                scroll_layout.addWidget(row_label, row_index, 2, 1, 2)
+                scroll_layout.addWidget(row_label, row_index, 3, 1, 3)
+
+                clear_out_row_button = ClickableLabel(scroll_widget)
+                clear_out_row_button.setFixedSize(28, 28)
+                clear_out_row_button.setAlignment(Qt.AlignCenter)
+                clear_out_row_button.setCursor(Qt.PointingHandCursor)
+                icon_pixmap = QPixmap("assets/icons/close_icon.png")
+                clear_out_row_button.setPixmap(icon_pixmap.scaled(22, 22, Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
                 table_cell = FocusLineEdit(scroll_widget)
                 table_cell.setStyleSheet(f"""
@@ -488,7 +503,7 @@ class CharactersThreadsTablesUI(QWidget):
                     dropdown_cell.currentIndexChanged.connect(self.edited_row_data)
                     dropdown_cell.currentIndexChanged.connect(self.dropdown_selection_handler(dropdown_cell, table_cell))
 
-                    scroll_layout.addWidget(dropdown_cell, row_index, 10, 1, 2)
+                    scroll_layout.addWidget(dropdown_cell, row_index, 16, 1, 3)
 
                 elif self.table_label == "threads":
                     if row_index in rows_to_be_updated:
@@ -501,7 +516,9 @@ class CharactersThreadsTablesUI(QWidget):
                     table_cell.editingFinished.connect(self.finish_edit_handler(table_cell))
                     table_cell.editingFinished.connect(self.edited_row_data)
 
-                scroll_layout.addWidget(table_cell, row_index, 4, 1, 6)
+                clear_out_row_button.clicked.connect(lambda row=row_index: self.emit_deleted_row_data(row))
+                scroll_layout.addWidget(clear_out_row_button, row_index, 6, 1, 1)
+                scroll_layout.addWidget(table_cell, row_index, 7, 1, 9)
                 row_index += 1
 
         scroll_area.setWidget(scroll_widget)
@@ -593,7 +610,8 @@ class CharactersThreadsTablesUI(QWidget):
                 data = {
                     "row": row_index,
                     "name": table_cell.text(),
-                    "type": sender.currentText()
+                    "type": sender.currentText(),
+                    "master_id": self.existing_data[row_index]["master_id"] if row_index in self.existing_data else None
                 }
                 self.row_data_edited.emit(data)
                 table_cell.clearFocus()
@@ -601,7 +619,8 @@ class CharactersThreadsTablesUI(QWidget):
             if sender.text():
                 data = {
                     "row": row_index,
-                    "thread": sender.text()
+                    "thread": sender.text(),
+                    "master_id": self.existing_data[row_index]["master_id"] if row_index in self.existing_data else None
                 }
                 self.row_data_edited.emit(data)
                 sender.clearFocus()
@@ -613,12 +632,57 @@ class CharactersThreadsTablesUI(QWidget):
                 dropdown_cell.setEnabled(False)
                 table_cell.setReadOnly(True)
         return handler
-    
+
+    def prompt_deletion_type(self):
+        button_labels = ["Delete from Story", "Delete from Game"]
+        dlg = TwoOptionsCancelDialog(self, button_labels)
+        result = dlg.exec()
+        if result == QDialog.Accepted:
+            return dlg.selected_label
+
     def prompt_duplicate_action(self, name):
         dlg = DuplicateListItemDialog(self)
         result = dlg.exec()
         if result == QDialog.Accepted:
             return dlg.selected_label
+
+    def emit_deleted_row_data(self, row_index):
+        # Prepare the data dict as in edited_row_data
+        if self.table_label == "characters":
+            # Find the table_cell and dropdown_cell for this row
+            table_cell = None
+            dropdown_cell = None
+            for le in self.scroll_widget.findChildren(QLineEdit):
+                if le.property("row_index") == row_index:
+                    table_cell = le
+                    break
+            for cb in self.scroll_widget.findChildren(QComboBox):
+                if cb.property("row_index") == row_index:
+                    dropdown_cell = cb
+                    break
+            if table_cell and dropdown_cell:
+                data = {
+                    "row": row_index,
+                    "name": table_cell.text(),
+                    "type": dropdown_cell.currentText(),
+                    "master_id": self.existing_data[row_index]["master_id"] if row_index in self.existing_data else None,
+                    "action": "delete"
+                }
+                self.row_data_edited.emit(data)
+        elif self.table_label == "threads":
+            table_cell = None
+            for le in self.scroll_widget.findChildren(QLineEdit):
+                if le.property("row_index") == row_index:
+                    table_cell = le
+                    break
+            if table_cell:
+                data = {
+                    "row": row_index,
+                    "thread": table_cell.text(),
+                    "master_id": self.existing_data[row_index]["master_id"] if row_index in self.existing_data else None,
+                    "action": "delete"
+                }
+                self.row_data_edited.emit(data)
 
     
 class DuplicateListItemDialog(QDialog):
