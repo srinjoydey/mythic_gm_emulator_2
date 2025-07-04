@@ -19,7 +19,7 @@ class GalleryUI(QWidget):
     close_gallery = Signal(str)
     image_uploaded = Signal(str)
 
-    def __init__(self, parent, controller, nav_items, existing_stories, first_nav_type, first_nav_id, prev_view):
+    def __init__(self, parent, controller, nav_items, existing_stories, first_nav_type, first_nav_id, prev_view, search_with):
         super().__init__(parent)
         self.parent_view = parent
         self.controller = controller
@@ -280,6 +280,10 @@ class GalleryUI(QWidget):
         content_layout.addWidget(self.notes_scroll, 3, 0, 2, 9)
 
         self.layout.addWidget(content_frame, 1, 3, 10, 10)
+        
+        if search_with is not None:
+            self.search_box.setText(search_with)
+            self.emit_current_search_options()
 
         if self.nav_buttons:
             # Simulate a click on the first nav button

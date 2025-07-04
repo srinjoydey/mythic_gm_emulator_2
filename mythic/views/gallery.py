@@ -10,7 +10,7 @@ MODEL_MAP = {"characters": Characters, "places": Places, "items": Items}
 class GalleryView(QWidget):
     """Handles main menu logic & navigation."""
 
-    def __init__(self, parent, controller, story_index=None, first_nav_type=None, first_nav_id=None, prev_view=None):
+    def __init__(self, parent, controller, story_index=None, first_nav_type=None, first_nav_id=None, prev_view=None, search_with=None):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
@@ -49,7 +49,7 @@ class GalleryView(QWidget):
         self.nav_bar_list = self.characters_list + self.places_list + self.items_list
 
         # Attach UI with navigation logic
-        self.ui = GalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_type=first_nav_type, first_nav_id=first_nav_id, prev_view=prev_view)
+        self.ui = GalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_type=first_nav_type, first_nav_id=first_nav_id, prev_view=prev_view, search_with=search_with)
         self.ui.search_options_changed.connect(self.search_nav_items)
         # self.ui.search_with.connect(self.typed_in_search_box)
         self.ui.details_data_ready.connect(self.post_edited_nav_items_data)

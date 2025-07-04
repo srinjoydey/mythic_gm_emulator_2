@@ -615,19 +615,68 @@ class CharactersThreadsTablesUI(QWidget):
         return handler
     
     def prompt_duplicate_action(self, name):
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle("Possible Duplicate?")
-            msg_box.setText(f"The name '{name}' already exists for this story.")
-            create_new_btn = msg_box.addButton("Create New", QMessageBox.ActionRole)
-            overwrite_btn = msg_box.addButton("Overwrite", QMessageBox.AcceptRole)
-            remove_dup_btn = msg_box.addButton("Remove Duplicate", QMessageBox.DestructiveRole)
-            msg_box.setDefaultButton(overwrite_btn)
-            msg_box.exec()
+        dlg = DuplicateListItemDialog(self)
+        result = dlg.exec()
+        if result == QDialog.Accepted:
+            return dlg.selected_label
 
-            if msg_box.clickedButton() == create_new_btn:
-                return "create"
-            elif msg_box.clickedButton() == overwrite_btn:
-                return "overwrite"
-            elif msg_box.clickedButton() == remove_dup_btn:
-                return "remove"
-            return None    
+    
+class DuplicateListItemDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # self.setWindowTitle("Start a New Scene")
+        self.setWindowFlag(Qt.FramelessWindowHint, True)
+        self.setModal(True)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #666;
+                border: 1px solid black;
+            }
+            QLabel {
+                color: #800000;
+                font-weight: bold;
+                font-size: 28px;
+            }
+            QPushButton {
+                background-color: #fffbe6;
+                color: #800000;
+                border: 1px solid #800000;
+                padding: 12px 24px;
+                font-size: 20px;
+                min-width: 165px;
+            }
+            QPushButton:hover {
+                background-color: #ffe6e6;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        layout.setContentsMargins(15, 20, 20, 15)
+
+        first_button_row = QHBoxLayout()
+        first_button_row.setSpacing(15)
+        self.create_new_btn = QPushButton("Create New", self)
+        self.select_existing_btn = QPushButton("Select Existing", self)
+        first_button_row.addWidget(self.create_new_btn)
+        first_button_row.addWidget(self.select_existing_btn)
+        layout.addLayout(first_button_row)
+
+        second_button_row = QHBoxLayout()
+        second_button_row.setSpacing(15)
+        self.remove_entry_btn = QPushButton("Remove Entry", self)
+        self.overwrite_existing_btn = QPushButton("Overwrite Existing", self)
+        second_button_row.addStretch(1)        
+        second_button_row.addWidget(self.remove_entry_btn)
+        second_button_row.addWidget(self.overwrite_existing_btn)
+        second_button_row.addStretch(1)        
+        layout.addLayout(second_button_row)
+
+        self.create_new_btn.clicked.connect(lambda: self.duplicate_entry_action(self.create_new_btn.text()))
+        self.select_existing_btn.clicked.connect(lambda: self.duplicate_entry_action(self.select_existing_btn.text()))
+        self.remove_entry_btn.clicked.connect(lambda: self.duplicate_entry_action(self.remove_entry_btn.text()))
+        self.overwrite_existing_btn.clicked.connect(lambda: self.duplicate_entry_action(self.overwrite_existing_btn.text()))
+
+    def duplicate_entry_action(self, label):
+        self.selected_label = label  # Store the label if you want to access it after exec()
+        self.accept()

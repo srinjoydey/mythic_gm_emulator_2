@@ -141,6 +141,15 @@ class CharactersList(QWidget):
             if duplicates:
                 user_choice = self.ui.prompt_duplicate_action(data["name"])
 
+                if user_choice == "Create New":
+                    pass
+                elif user_choice == "Select Existing":
+                    pass
+                elif user_choice == "Overwrite Existing":
+                    pass
+                elif user_choice == "Remove Entry":
+                    pass
+
                 if user_choice == "overwrite":
                     # Dealing only with the first entry in case of multiple duplicates for now. Shall add selection pop-up to select exact duplicate later.
                     duplicates[0].name = data["name"]
