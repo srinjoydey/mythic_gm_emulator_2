@@ -493,6 +493,7 @@ class OraclesTablesUI(QWidget):
     nav_item_selected = Signal(str)
     nav_item_double_clicked = Signal(str)
     close_oracles_tables_window = Signal(str)
+    fate_intersection_cell = Signal(int, int, tuple)
 
     def __init__(self, parent, controller, nav_items, first_nav_item, prev_view, chaos_factor):
         super().__init__(parent)
@@ -507,6 +508,9 @@ class OraclesTablesUI(QWidget):
             self.modal = True
         else:
             self.modal = False
+
+        self.selected_row_idx = None
+        self.selected_col_idx = None
 
         # Make the UI fill the entire parent window
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -641,22 +645,43 @@ class OraclesTablesUI(QWidget):
             if widget:
                 widget.setParent(None)
 
-        # Create a new layout for the table
-        table_layout = QGridLayout()
-        table_layout.setSpacing(0)
+        self._fate_table = table
+
+        # --- Static first column widget ---
+        static_col_widget = QWidget(self)
+        first_column_layout = QVBoxLayout(static_col_widget)
+        first_column_layout.setContentsMargins(0, 0, 0, 0)
+        first_column_layout.setSpacing(0)
+
+        # --- Scrollable table widget ---
+        scroll_widget = QWidget(self)
+        table_layout = QGridLayout(scroll_widget)
         table_layout.setContentsMargins(0, 0, 0, 0)
+        table_layout.setSpacing(0)
+
+        self._scroll_widget = scroll_widget
+        self._table_layout = table_layout
+
+        self.first_cols_labels = []
+        if self.chaos_factor is not None:
+            self.chaos_factor_col = self.chaos_factor - 1  # 0-based index for chaos_factor column
 
         # Main table rows
         for row_idx, row_tuple in enumerate(table):
-            # First column: the string
+            # First column: the string (static)
             label = QLabel(str(row_tuple[0]).capitalize(), self.content_nav_frame)
             label.setFont(QFont("Arial", 14, QFont.Bold))
             label.setAlignment(Qt.AlignCenter)
             label.setStyleSheet("background-color: white; color: black; border: 1px solid #aaa; padding: 10px;")
-            table_layout.addWidget(label, row_idx, 0)
+            first_column_layout.addWidget(label)
+            self.first_cols_labels.append(label)  # Store for click handling
 
-            # Next columns: each is a tuple of 3 values
-            for col_idx, cell_tuple in enumerate(row_tuple[1:], start=1):
+            # Make label clickable
+            label.mousePressEvent = lambda event, r=row_idx: self.fate_chart_first_col_click(r)
+            label.mouseDoubleClickEvent = lambda event, r=row_idx: self.fate_chart_first_col_click(r, emit_signal=True)
+
+            # Next columns: each is a tuple of 3 values (scrollable)
+            for col_idx, cell_tuple in enumerate(row_tuple[1:]):
                 cell_widget = QWidget(self.content_nav_frame)
                 cell_layout = QHBoxLayout(cell_widget)
                 cell_layout.setContentsMargins(0, 0, 0, 0)
@@ -677,24 +702,23 @@ class OraclesTablesUI(QWidget):
                 right_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 right_label.setStyleSheet("background: transparent; color: black; border: None; padding-left: 7px; padding-right: 7px;")
 
-                # Add labels without any lines/separators
                 cell_layout.addWidget(left_label)
                 cell_layout.addWidget(mid_label)
                 cell_layout.addWidget(right_label)
-
-                # cell_widget.setStyleSheet("background-color: white; color: black; border: 1px solid #aaa;")
                 cell_widget.setStyleSheet("background-color: white; color: black; border: 1px solid #aaa;")
                 table_layout.addWidget(cell_widget, row_idx, col_idx)
 
-        # Add Chaos Factor row below the main table
+        # --- Chaos Factor row ---
         chaos_row = len(table)
+        # Add "Chaos Factor" label to the static column
         chaos_label = QLabel("Chaos Factor", self.content_nav_frame)
         chaos_label.setFont(QFont("Arial", 13, QFont.Bold))
         chaos_label.setAlignment(Qt.AlignCenter)
         chaos_label.setStyleSheet("background-color: #eee; color: black; border: 1px solid #aaa; padding: 8px;")
-        table_layout.addWidget(chaos_label, chaos_row, 0)
+        first_column_layout.addWidget(chaos_label)
         
         cf_highlight_widget = None
+        self.chaos_factor_cells = []
         for i in range(1, 10):
             cf_label = QLabel(str(i), self.content_nav_frame)
             cf_label.setFont(QFont("Arial", 13, QFont.Bold))
@@ -704,17 +728,106 @@ class OraclesTablesUI(QWidget):
                 cf_highlight_widget = cf_label
             else:
                 cf_label.setStyleSheet("background-color: #eee; color: black; border: 1px solid #aaa; padding: 8px;")
-            table_layout.addWidget(cf_label, chaos_row, i)
+            table_layout.addWidget(cf_label, chaos_row, i-1)  # i-1 because columns start at 0
+            self.chaos_factor_cells.append(cf_label)  # Store for click hand
+            
+            if self.chaos_factor is None:
+                cf_label.mousePressEvent = lambda event, c=i-1: self.handle_chaos_row_click(c)
 
-        # Set the new layout to the content_nav_frame
-        old_layout = self.content_nav_frame.layout()
-        if old_layout:
-            QWidget().setLayout(old_layout)
-        self.content_nav_frame.setLayout(table_layout)
+        # --- Place widgets in main layout ---
+        hbox = QHBoxLayout()
+        hbox.setContentsMargins(0, 0, 0, 0)
+        hbox.setSpacing(0)
+        hbox.addWidget(static_col_widget)
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(scroll_widget)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setStyleSheet("""
+            QScrollBar:vertical, QScrollBar:horizontal {
+                width: 0px;
+                height: 0px;
+                background: transparent;
+            }
+        """)
+        hbox.addWidget(scroll_area)
+
+        # Remove old layout and set new one
+        QWidget().setLayout(self.content_nav_frame.layout())
+        self.content_nav_frame.setLayout(hbox)
 
         # Scroll to the highlighted chaos factor cell if needed
         if cf_highlight_widget:
-            scroll_to_widget(self.content_nav_scroll_area, cf_highlight_widget)
+            scroll_to_widget(scroll_area, cf_highlight_widget)
+
+    def fate_chart_first_col_click(self, row_idx, emit_signal=False):
+        self.selected_row_idx = row_idx
+        # Remove previous highlights from first column
+        for label in self.first_cols_labels:
+            label.setStyleSheet("background-color: white; color: black; border: 1px solid #aaa; padding: 10px;")
+        # Highlight the clicked label
+        self.first_cols_labels[row_idx].setStyleSheet("background-color: yellow; color: black; border: 2px solid #d4af37; padding: 10px;")
+        self.highlight_intersection()
+
+        # Only emit the signal on double-click and if chaos_factor is set
+        if emit_signal and self.chaos_factor is not None:
+            col_idx = self.chaos_factor_col
+            # Get the intersection cell's content tuple (should be 3 values)
+            try:
+                cell_content_tuple = self._fate_table[row_idx][col_idx + 1]  # +1 because first col is label
+            except Exception:
+                cell_content_tuple = ("", "", "")
+            self.fate_intersection_cell.emit(row_idx, col_idx, cell_content_tuple)
+
+    def highlight_intersection(self):
+        if self.chaos_factor is not None:
+            # Original logic: highlight intersection of first col and chaos_factor_col
+            table_layout = getattr(self, "_table_layout", None)
+            if not table_layout or self.selected_row_idx is None:
+                return
+            chaos_row = len(self._fate_table)
+            # Remove previous intersection highlights, but NOT the chaos factor row
+            for r in range(table_layout.rowCount()):
+                if r == chaos_row:
+                    continue
+                item = table_layout.itemAtPosition(r, self.chaos_factor_col)
+                if item and item.widget():
+                    item.widget().setStyleSheet("background-color: white; color: black; border: 1px solid #aaa;")
+            # Highlight the intersection cell
+            item = table_layout.itemAtPosition(self.selected_row_idx, self.chaos_factor_col)
+            if item and item.widget():
+                item.widget().setStyleSheet("background-color: #ffe066; color: black; border: 2px solid #d4af37;")
+        else:
+            # New logic: highlight intersection of selected row and selected col (if both are set)
+            table_layout = getattr(self, "_table_layout", None)
+            if not table_layout:
+                return
+            # Remove all previous intersection highlights
+            for r in range(table_layout.rowCount()):
+                for c in range(table_layout.columnCount()):
+                    item = table_layout.itemAtPosition(r, c)
+                    if item and item.widget():
+                        item.widget().setStyleSheet("background-color: white; color: black; border: 1px solid #aaa;")
+            # Re-highlight selected first col and chaos row cells
+            if self.selected_row_idx is not None:
+                self.first_cols_labels[self.selected_row_idx].setStyleSheet("background-color: #ffe066; color: black; border: 2px solid #d4af37; padding: 10px;")
+            if self.selected_col_idx is not None:
+                self.chaos_factor_cells[self.selected_col_idx].setStyleSheet("background-color: #ffe066; color: black; border: 2px solid #d4af37; padding: 8px;")
+            # Highlight intersection if both are selected
+            chaos_row = len(self._fate_table)
+            if self.selected_row_idx is not None and self.selected_col_idx is not None:
+                item = table_layout.itemAtPosition(self.selected_row_idx, self.selected_col_idx)
+                if item and item.widget():
+                    item.widget().setStyleSheet("background-color: #ffe066; color: black; border: 2px solid #d4af37;")
+
+    def handle_chaos_row_click(self, col_idx):
+        self.selected_col_idx = col_idx
+        # Remove previous highlights from chaos row
+        for label in self.chaos_factor_cells:
+            label.setStyleSheet("background-color: #eee; color: black; border: 1px solid #aaa; padding: 8px;")
+        self.chaos_factor_cells[col_idx].setStyleSheet("background-color: #ffe066; color: black; border: 2px solid #d4af37; padding: 8px;")
+        self.highlight_intersection()
 
     def render_non_meaning_tables(self, nav_item, table):
         """

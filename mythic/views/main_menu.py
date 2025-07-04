@@ -204,6 +204,7 @@ class OraclesTablesView(QWidget):
         self.ui = OraclesTablesUI(self, controller, list(TABLES_INDEX.keys()), first_nav_item, prev_view, chaos_factor)
         self.ui.nav_item_selected.connect(self.get_table_data)
         self.ui.nav_item_double_clicked.connect(self.roll_on_double_clicked_table)
+        self.ui.fate_intersection_cell.connect(self.roll_on_fate_chart)
         self.ui.close_oracles_tables_window.connect(self.navigate_to_previous_view)
         # Layout to ensure proper expansion
         self.setLayout(self.ui.layout)
@@ -241,3 +242,7 @@ class OraclesTablesView(QWidget):
                 # self.ui.display_roll_result(table_name, result)
                 print("Rolling result:", *result)
                 self.ui.highlight_roll_result(result)
+
+    def roll_on_fate_chart(self, row_idx, col_idx, cell_content_tuple):
+        """Rolls on the Fate Chart and updates the UI."""
+        print("row_idx:", row_idx, "col_idx:", col_idx, "cell_content_tuple:", cell_content_tuple)
