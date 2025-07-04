@@ -133,7 +133,7 @@ class GalleryUI(QWidget):
         self.nav_layout.setSpacing(0)
 
         for nav_item in nav_items:
-            nav_item_type = nav_item[0]
+            self.nav_item_type = nav_item[0]
             if self.modal:
                 nav_item_id = nav_item[1]
                 nav_item_name = nav_item[2]
@@ -145,11 +145,11 @@ class GalleryUI(QWidget):
             btn.setFont(QFont("Arial", 14))
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             btn.setStyleSheet("padding: 10px; color: white;")
-            btn.clicked.connect(lambda checked, b=btn, type=nav_item_type, id=nav_item_id: self.handle_nav_click(b, type, id))
+            btn.clicked.connect(lambda checked, b=btn, type=self.nav_item_type, id=nav_item_id: self.handle_nav_click(b, type, id))
             self.nav_layout.addWidget(btn)
             self.nav_buttons.append(btn)
-            self.nav_id_to_label[(nav_item_type, nav_item_id)] = nav_item_name
-            self.nav_btn_map[(nav_item_type, nav_item_id)] = btn
+            self.nav_id_to_label[(self.nav_item_type, nav_item_id)] = nav_item_name
+            self.nav_btn_map[(self.nav_item_type, nav_item_id)] = btn
 
         self.nav_layout.addStretch()
         self.nav_scroll_area.setWidget(self.nav_frame)
@@ -168,8 +168,13 @@ class GalleryUI(QWidget):
         self.image_section = QFrame(content_frame)
         self.image_section.setStyleSheet("""
             background-color: #333;
-        """) 
-        content_layout.addWidget(self.image_section, 0, 0, 3, 3)
+        """)
+        if self.nav_item_type == "characters":
+            content_layout.addWidget(self.image_section, 0, 0, 3, 3)
+        elif self.nav_item_type == "places":
+            content_layout.addWidget(self.image_section, 0, 0, 3, 5)
+        else:
+            content_layout.addWidget(self.image_section, 0, 0, 3, 4)
 
         self.image_label = QLabel(self.image_section)
         self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -187,8 +192,13 @@ class GalleryUI(QWidget):
         self.details_layout.setSpacing(0)
         self.details_section.setStyleSheet("""
             background-color: #333;
-        """) 
-        content_layout.addWidget(self.details_section, 0, 3, 3, 2)
+        """)
+        if self.nav_item_type == "characters":
+            content_layout.addWidget(self.details_section, 0, 3, 3, 6)
+        elif self.nav_item_type == "places":
+            content_layout.addWidget(self.details_section, 0, 5, 3, 4)
+        else:
+            content_layout.addWidget(self.details_section, 0, 4, 3, 5)
 
         for i in range(7):
             details_row = QLineEdit(self.details_section)
@@ -267,7 +277,7 @@ class GalleryUI(QWidget):
         self.notes_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.notes_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.notes_scroll.setStyleSheet("background: transparent; border: none;")
-        content_layout.addWidget(self.notes_scroll, 3, 0, 2, 5)
+        content_layout.addWidget(self.notes_scroll, 3, 0, 2, 9)
 
         self.layout.addWidget(content_frame, 1, 3, 10, 10)
 
@@ -578,6 +588,16 @@ class GalleryUI(QWidget):
         numbering_action.triggered.connect(insert_numbering)
         self.notes_toolbar.addAction(numbering_action)
 
+        # Fullscreen Notes button
+        fullscreen_notes_action = QAction("🗖", self.notes_toolbar)
+        fullscreen_notes_action.setToolTip("Fullscreen Notes")
+        def show_fullscreen_notes():
+            dlg = FullScreenNotesDialog(self.notes_edit, self.notes_toolbar, self)
+            dlg.showFullScreen()
+            dlg.exec()
+        fullscreen_notes_action.triggered.connect(show_fullscreen_notes)
+        self.notes_toolbar.addAction(fullscreen_notes_action)
+
     def update_nav_bar(self, nav_bar_list):
         # Remove all existing nav buttons from the layout and clear lists/maps
         for btn in self.nav_buttons:
@@ -821,6 +841,47 @@ class FullScreenImageDialog(QDialog):
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
+            self.close()
+        else:
+            super().keyPressEvent(event)
+
+
+class FullScreenNotesDialog(QDialog):
+    def __init__(self, notes_edit, toolbar, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+        self.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setStyleSheet("background-color: #222;")
+        self.notes_edit = notes_edit
+        self.toolbar = toolbar
+
+        # Save parent and layout to restore later
+        self._original_parent = notes_edit.parent()
+        self._original_toolbar_parent = toolbar.parent()
+        self._original_notes_layout = notes_edit.parent().layout()
+        self._original_toolbar_layout = toolbar.parent().layout()
+
+        # Remove widgets from their parents and add to dialog
+        self.notes_edit.setParent(self)
+        self.toolbar.setParent(self)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.notes_edit)
+        self.setLayout(layout)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape:
+            # Restore widgets to original parents and layouts
+            self.toolbar.setParent(self._original_toolbar_parent)
+            self.notes_edit.setParent(self._original_parent)
+            if self._original_toolbar_layout is not None:
+                self._original_toolbar_layout.addWidget(self.toolbar)
+            if self._original_notes_layout is not None:
+                self._original_notes_layout.addWidget(self.notes_edit)
             self.close()
         else:
             super().keyPressEvent(event)
