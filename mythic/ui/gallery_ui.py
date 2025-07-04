@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit, QFileDialog, QTextEdit, QToolBar, QColorDialog, QFontComboBox, QComboBox, QCheckBox, QRadioButton, QButtonGroup, QApplication, QSpacerItem)
+    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit, QFileDialog, QTextEdit, QToolBar, QColorDialog, QFontComboBox, QComboBox, QCheckBox, QRadioButton, QButtonGroup, QApplication, QSpacerItem, QDialog)
 from PySide6.QtGui import QFont, QIcon, QPixmap, QTextCharFormat, QTextListFormat, QAction
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
 import os
@@ -177,7 +177,8 @@ class GalleryUI(QWidget):
         image_section_layout = QVBoxLayout(self.image_section)
         image_section_layout.setContentsMargins(0, 0, 0, 0)
         image_section_layout.setSpacing(0)
-        image_section_layout.addWidget(self.image_label) 
+        image_section_layout.addWidget(self.image_label)
+        self.image_label.mouseDoubleClickEvent = self.show_fullscreen_image
 
         # --- Details ---
         self.details_section = QFrame(content_frame)
@@ -492,6 +493,11 @@ class GalleryUI(QWidget):
             )
             self.image_label.setPixmap(scaled)
 
+    def show_fullscreen_image(self, event):
+        if hasattr(self, '_original_pixmap') and self._original_pixmap:
+            dlg = FullScreenImageDialog(self._original_pixmap, self)
+            dlg.showFullScreen()
+
     def toolbar_buttons(self):
         # Bold
         bold_action = QAction("B", self.notes_toolbar)
@@ -787,3 +793,34 @@ class SearchOptionsPopup(QWidget):
         # Gather values
         popup_self.emit_current_values()
         popup_self.close()
+
+
+class FullScreenImageDialog(QDialog):
+    def __init__(self, pixmap, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+        self.setWindowModality(Qt.ApplicationModal)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setStyleSheet("background-color: black;")
+        self.label = QLabel(self)
+        self.label.setAlignment(Qt.AlignCenter)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.label)
+        self.setLayout(layout)
+        self.set_pixmap(pixmap)
+
+    def set_pixmap(self, pixmap):
+        if pixmap:
+            screen_rect = self.screen().geometry()
+            scaled = pixmap.scaled(
+                screen_rect.width(), screen_rect.height(),
+                Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            self.label.setPixmap(scaled)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape:
+            self.close()
+        else:
+            super().keyPressEvent(event)
