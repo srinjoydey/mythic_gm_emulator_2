@@ -10,18 +10,18 @@ MODEL_MAP = {"characters": Characters, "places": Places, "items": Items}
 class GalleryView(QWidget):
     """Handles main menu logic & navigation."""
 
-    def __init__(self, parent, controller, story_index=None, first_nav_type=None, first_nav_id=None, prev_view=None, search_with=None):
+    def __init__(self, parent, controller, story_index=None, first_nav_type=None, first_nav_id=None, prev_view=None, search_data=None):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
         existing_stories = {}
-        self.mult_story_mode = self.story_index is None
+        self.multi_story_mode = self.story_index is None
         self.first_call = True
 
         if self.story_index is None:
             existing_stories = {story.index: story.name for story in session.query(StoriesIndex).all()}
             self.characters_base_queryset = session.query(Characters).with_entities(Characters.story_index, Characters.id, Characters.name)
-            self.places_base_queryset = session.query(Places).with_entities(Places.story_index, Places.id, Places.name)
+            self.places_base_queryset = session.query(Places).with_entities(Places.story_index, Places.id, Places.name) 
             self.items_base_queryset = session.query(Items).with_entities(Items.story_index, Items.id, Items.name)
 
             self.characters_queryset = self.characters_base_queryset
@@ -49,9 +49,8 @@ class GalleryView(QWidget):
         self.nav_bar_list = self.characters_list + self.places_list + self.items_list
 
         # Attach UI with navigation logic
-        self.ui = GalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_type=first_nav_type, first_nav_id=first_nav_id, prev_view=prev_view, search_with=search_with)
+        self.ui = GalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_type=first_nav_type, first_nav_id=first_nav_id, prev_view=prev_view, search_with=search_data)
         self.ui.search_options_changed.connect(self.search_nav_items)
-        # self.ui.search_with.connect(self.typed_in_search_box)
         self.ui.details_data_ready.connect(self.post_edited_nav_items_data)
         self.ui.close_gallery.connect(self.navigate_to_previous_view)
         self.ui.image_uploaded.connect(self.save_uploaded_image)
@@ -145,7 +144,7 @@ class GalleryView(QWidget):
             return data
         return {}
 
-    def search_nav_items(self, sort, show, categories, stories, search_text=None):
+    def search_nav_items(self, sort, show, categories, stories, search_data=None):
         sort_position = None
         # only have selected categories
         if 'Characters' not in categories:
@@ -161,7 +160,7 @@ class GalleryView(QWidget):
         else:
             self.items_queryset = self.items_base_queryset
         # if the gallery view can host multiple stories, filter by selected stories
-        if self.mult_story_mode:
+        if self.multi_story_mode:
             if self.characters_queryset:
                 self.characters_queryset = self.characters_queryset.filter(Characters.story_index.in_(stories))
             if self.places_queryset:
@@ -172,23 +171,28 @@ class GalleryView(QWidget):
             sort_position = 3
         else:
             sort_position = 2
+
+        if search_data:
+            # If search text is present, filter the querysets based on the search text
+            if self.characters_queryset:
+                self.characters_queryset = self.characters_queryset.filter(func.lower(Characters.name).like(f"%{search_data.lower()}%"))
+            if self.places_queryset:
+                self.places_queryset = self.places_queryset.filter(func.lower(Places.name).like(f"%{search_data.lower()}%"))
+            if self.items_queryset:
+                self.items_queryset = self.items_queryset.filter(func.lower(Items.name).like(f"%{search_data.lower()}%"))
+        
         # filter querysets based on whether active or inactive
         if show == "Inactive":
             self.toggle_active_inactive("Inactive")
-            # print(self.characters_queryset.statement)
         elif show == "Active":
             self.toggle_active_inactive("Active")
 
-        if self.mult_story_mode:
+        if self.multi_story_mode:
             self.get_list_from_queryset(mutli_story_mode=True)
         else:
             self.get_list_from_queryset(mutli_story_mode=False)
-
-        if search_text:
-            self.typed_in_search_box(search_text)
-        else:
-            # If no search text, just rebuild the nav bar list
-            self.nav_bar_list = self.characters_list + self.places_list + self.items_list
+        # Rebuild the nav_bar_list
+        self.nav_bar_list = self.characters_list + self.places_list + self.items_list
         
         # Sort
         if sort == "Descending":
@@ -196,29 +200,6 @@ class GalleryView(QWidget):
         elif sort == "Ascending":
             self.sort_nav_items(sort_position, "Ascending")
         self.ui.update_nav_bar(self.nav_bar_list)
-
-    def typed_in_search_box(self, text):
-        # Get the current filter state from the UI
-        sort, show, categories, stories = self.ui.last_search_options
-
-        # Rebuild the querysets from the base, applying the current filters
-        self.search_nav_items(sort, show, categories, stories)
-
-        # Now apply the search filter if text is present
-        if text:
-            if self.characters_queryset:
-                self.characters_queryset = self.characters_queryset.filter(func.lower(Characters.name).like(f"%{text.lower()}%"))
-            if self.places_queryset:
-                self.places_queryset = self.places_queryset.filter(func.lower(Places.name).like(f"%{text.lower()}%"))
-            if self.items_queryset:
-                self.items_queryset = self.items_queryset.filter(func.lower(Items.name).like(f"%{text.lower()}%"))
-
-            # Rebuild the nav bar list and update the UI
-            if self.mult_story_mode:
-                self.get_list_from_queryset(mutli_story_mode=True)
-            else:
-                self.get_list_from_queryset(mutli_story_mode=False)
-            self.nav_bar_list = self.characters_list + self.places_list + self.items_list
 
     def save_uploaded_image(self, image_path):
         """Saves the uploaded image path to the database."""

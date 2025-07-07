@@ -27,6 +27,7 @@ class MainMenuUI(QWidget):
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
         self.layout.setSpacing(10)
+        self.layout.setContentsMargins(150, 76, 0, 0)
 
         # Title Label (Centered)
         self.title_label = QLabel("Mythic GM Emulator", self)
@@ -251,6 +252,7 @@ class ExistingStoryUI(QWidget):
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
         self.layout.setSpacing(0)
+        self.layout.setContentsMargins(0, 50, 0, 0)
 
         # Title Label (Centered)
         self.title_label = QLabel("Existing Stories", self)
@@ -269,7 +271,8 @@ class ExistingStoryUI(QWidget):
         # Select Button Frame (Middle Left placement)
         self.select_button_frame = QFrame(self)
         self.select_button_layout = QVBoxLayout(self.select_button_frame)
-        self.select_button_layout.setContentsMargins(75, 35, 0, 0)
+        self.select_button_layout.setContentsMargins(147, 35, 0, 0)
+        self.select_button_layout.setSpacing(13)
         # self.layout.addWidget(self.select_button_frame, 1, 0, 3, 4, alignment=Qt.AlignLeft)
         self.layout.addWidget(self.select_button_frame, 1, 0, 3, 1)
 
@@ -277,12 +280,13 @@ class ExistingStoryUI(QWidget):
         self.description_frame = QFrame(self)
         self.description_layout = QVBoxLayout(self.description_frame)
         self.description_layout.setContentsMargins(50, 35, 0, 0)
+        self.description_layout.setSpacing(13)
         self.layout.addWidget(self.description_frame, 1, 1, 3, 3)
 
         # Back Button Frame (Bottom Left placement)
         self.back_button_frame = QFrame(self)
         self.back_button_layout = QHBoxLayout(self.back_button_frame)
-        self.back_button_layout.setContentsMargins(162, 0, 0, 0)  # Match left margin with select buttons
+        self.back_button_layout.setContentsMargins(200, 0, 0, 0)  # Match left margin with select buttons
         self.back_button_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.layout.addWidget(self.back_button_frame, 4, 0, 2, 1, alignment=Qt.AlignLeft)
 
@@ -301,7 +305,7 @@ class ExistingStoryUI(QWidget):
         self.select_buttons = []
         for index_data, story_data in self.existing_stories_data.items():
             self.select_buttons.append((index_data, story_data['story_name'], story_data['description']))
-        select_button_width, select_button_height = 380, 65
+        select_button_width, select_button_height = 320, 65
         select_button_font_size = 18
 
         for index_value, story_title, story_description in self.select_buttons:
@@ -518,7 +522,7 @@ class OraclesTablesUI(QWidget):
         # Main grid layout
         self.layout = QGridLayout(self)
         if self.modal:
-            self.layout.setContentsMargins(50, 20, 50, 50)
+            self.layout.setContentsMargins(50, 40, 50, 30)
         else:
             self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
@@ -584,7 +588,7 @@ class OraclesTablesUI(QWidget):
                 padding: 10px;
                 color: white;
             """)
-            btn.clicked.connect(lambda checked, b=btn, item=nav_item: self.handle_nav_click(b, item))
+            btn.singleClicked.connect(lambda checked, b=btn, item=nav_item: self.handle_nav_click(b, item))
             btn.doubleClicked.connect(lambda item=nav_item, b=btn: self.handle_nav_double_click(b, item))
             self.nav_layout.addWidget(btn)
             self.nav_buttons.append(btn)
@@ -919,8 +923,8 @@ class OraclesTablesUI(QWidget):
 
     def handle_nav_double_click(self, btn, nav_item):
         # Only emit if this button is already selected
-        if self.selected_nav_btn is btn:
-            self.nav_item_double_clicked.emit(nav_item)
+        # if self.selected_nav_btn is btn:
+        self.nav_item_double_clicked.emit(nav_item)
 
     def highlight_roll_result(self, row_indices, table_name=None):
         self._highlight_sequence = row_indices
@@ -1033,11 +1037,29 @@ class OraclesTablesUI(QWidget):
 
 class DoubleClickableButton(QPushButton):
     doubleClicked = Signal(str)  # Will emit the nav_item/table name
+    singleClicked = Signal(str)  # Optional: for single click
 
     def __init__(self, nav_item, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.nav_item = nav_item
+        self._click_timer = QTimer(self)
+        self._click_timer.setSingleShot(True)
+        self._click_timer.timeout.connect(self._emit_single_click)
+        self._double_click_interval = 250  # ms
+
+    def mousePressEvent(self, event):
+        # Start single-click timer
+        if self._click_timer.isActive():
+            self._click_timer.stop()
+        self._click_timer.start(self._double_click_interval)
+        super().mousePressEvent(event)
 
     def mouseDoubleClickEvent(self, event):
+        # Stop single-click timer and emit doubleClicked
+        if self._click_timer.isActive():
+            self._click_timer.stop()
         self.doubleClicked.emit(self.nav_item)
         super().mouseDoubleClickEvent(event)
+
+    def _emit_single_click(self):
+        self.singleClicked.emit(self.nav_item)

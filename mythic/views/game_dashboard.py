@@ -134,13 +134,11 @@ class CharactersList(QWidget):
 
         master_tables_model = MODEL_MAP.get(data['type'])
         data_action = data.get("action")
-        print(f"data action: {data_action}")
 
         duplicates = session.query(master_tables_model).filter(
             master_tables_model.name == data["name"],
             master_tables_model.story_index == self.story_index
         ).all()
-        print(f"duplicates: {len(duplicates)})")
 
         if data_action == "delete":
             # Remove from story-specific list
@@ -152,11 +150,36 @@ class CharactersList(QWidget):
             if user_choice == "Create New":
                 self.create_row_data(data, master_tables_model)
             elif user_choice == "Select Existing":
-                self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=duplicates[0].id, prev_view='characters list', search_with=data['name'])
+                data['action'] = "select"
+                self.controller.show_view(
+                    GalleryView,
+                    story_index=self.story_index,
+                    first_nav_type=data['type'],
+                    first_nav_id=duplicates[0].id,
+                    prev_view='characters list',
+                    search_data=data
+                )
+                self.controller.current_view.ui.list_action_nav_item.connect(
+                    lambda nav_type, nav_id: self.select_or_overwrite_existing_item(nav_type, nav_id, data, master_tables_model)
+                )
+
             elif user_choice == "Overwrite Existing":
-                self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=duplicates[0].id, prev_view='characters list', search_with=data['name'])
+                data['action'] = "overwrite"
+                self.controller.show_view(
+                    GalleryView,
+                    story_index=self.story_index,
+                    first_nav_type=data['type'],
+                    first_nav_id=duplicates[0].id,
+                    prev_view='characters list',
+                    search_data=data
+                )
+                self.controller.current_view.ui.list_action_nav_item.connect(
+                    lambda nav_type, nav_id: self.select_or_overwrite_existing_item(nav_type, nav_id, data, master_tables_model)
+                )
+
             elif user_choice == "Remove Entry":
-                self.delete_row_data(data, master_tables_model)
+                self.controller.show_view(CharactersList, story_index=self.story_index)
+
         else:
             # No duplicates, create new entry
             self.create_row_data(data, master_tables_model)
@@ -194,25 +217,54 @@ class CharactersList(QWidget):
 
         if deletion_type == "Delete from Story":
             # Also mark the master data as inactive
-            session.query(master_tables_model).filter(
-                master_tables_model.name == data["name"],
-                master_tables_model.story_index == self.story_index
-            ).update({"active": False})
+            session.query(master_tables_model).filter(master_tables_model.id == data["master_id"]).update({"active": False})
             # Mark related notes as inactive
-            session.query(Notes).filter(Notes.story_index == self.story_index, Notes.type == data['type'], Notes.type_id == data["master_id"]).update({"active": False})
+            session.query(Notes).filter(Notes.type == data['type'], Notes.type_id == data["master_id"]).update({"active": False})
 
         if deletion_type == "Delete from Game":
             # Also delete from the master data
-            session.query(master_tables_model).filter(
-                master_tables_model.name == data["name"],
-                master_tables_model.story_index == self.story_index
-            ).delete()
+            session.query(master_tables_model).filter(master_tables_model.id == data["master_id"]).delete()
             # Delete related notes
-            session.query(Notes).filter(Notes.story_index == self.story_index, Notes.type == data['type'], Notes.type_id == data["master_id"]).delete()
+            session.query(Notes).filter(Notes.type == data['type'], Notes.type_id == data["master_id"]).delete()
 
         session.commit()
         return
 
+    def select_or_overwrite_existing_item(self, existing_nav_type, existing_nav_id, new_record_data, master_tables_model):
+        """Handles the selection or overwriting of an existing navigation item."""
+        list_row = new_record_data.get('row')
+        list_row_to_update = session.query(self.characters_list_model).filter(self.characters_list_model.row == list_row).first()
+        existing_nav_type = existing_nav_type[:-1]
+        selected_master_data = session.query(master_tables_model).filter(master_tables_model.id == existing_nav_id).first()
+        related_notes = session.query(Notes).filter(Notes.type == existing_nav_type, Notes.type_id == existing_nav_id).first()
+        
+        list_row_to_update.name = selected_master_data.name
+        list_row_to_update.type = existing_nav_type
+        list_row_to_update.master_id = existing_nav_id
+
+        if new_record_data['action'] == "overwrite":
+            if existing_nav_type == "character":
+                selected_master_data.race = None
+                selected_master_data.age = None
+                selected_master_data.role_profession = None
+                selected_master_data.social_status = None
+                selected_master_data.economic_status = None
+            elif existing_nav_type == "place":
+                selected_master_data.weather = None
+                selected_master_data.smell = None
+            elif existing_nav_type == "item":
+                selected_master_data.material = None
+                selected_master_data.rarity = None
+            related_notes.notes = None
+
+        if selected_master_data.active is False:
+            selected_master_data.active = True
+        if related_notes.active is False:
+            related_notes.active = True
+
+        session.flush()
+        session.commit()
+        self.controller.show_view(CharactersList, story_index=self.story_index)
 
     def get_background_image(self):
         """Returns the background image path for this view."""

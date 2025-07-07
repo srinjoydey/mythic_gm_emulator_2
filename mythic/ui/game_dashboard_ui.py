@@ -495,9 +495,8 @@ class CharactersThreadsTablesUI(QWidget):
                         dropdown_cell.setCurrentText(self.existing_data[row_index]["type"])
 
                     # --- Editable logic ---
-                    row_label.clicked.connect(self.row_click_handler(table_cell, dropdown_cell))
-                    table_cell.focused.connect(self.row_click_handler(table_cell, dropdown_cell))
-                    table_cell.mouseDoubleClickEvent = self.double_click_handler(table_cell)
+                    table_cell.mousePressEvent = self.make_table_cell_mouse_press_handler(table_cell, dropdown_cell)
+                    table_cell.mouseDoubleClickEvent = self.make_table_cell_mouse_double_click_handler(table_cell, dropdown_cell)
                     table_cell.textEdited.connect(self.debounced_emit_search_for_suggestions)
                     table_cell.editingFinished.connect(self.finish_edit_handler(table_cell, dropdown_cell))
                     dropdown_cell.currentIndexChanged.connect(self.edited_row_data)
@@ -527,42 +526,68 @@ class CharactersThreadsTablesUI(QWidget):
         self.setLayout(self.layout)
 
 
-    def row_click_handler(self, table_cell, dropdown_cell=None):
-        def handler():
-            if table_cell.isReadOnly():
-                row_index = table_cell.property("row_index")
-                if dropdown_cell:
-                    data = {
-                        "name": table_cell.text(),
-                        "type": dropdown_cell.currentText(),
-                        "row_index": row_index
-                    }
-                    self.row_clicked.emit(data)
-                else:
-                    data = {
-                        "thread": table_cell.text(),
-                        "row_index": row_index
-                    }
-                    self.row_clicked.emit(data)
+    def make_table_cell_mouse_press_handler(self, table_cell, dropdown_cell=None):
+        def handler(event):
+            # Start a single-click timer; if double-click occurs, timer will be stopped
+            if not hasattr(self, "_single_click_timers"):
+                self._single_click_timers = {}
+            # Stop any existing timer for this cell
+            timer = self._single_click_timers.get(table_cell)
+            if timer:
+                timer.stop()
+            # Create a new timer for this cell
+            timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(lambda: self._on_table_cell_single_click(table_cell, dropdown_cell))
+            self._single_click_timers[table_cell] = timer
+            timer.start(250)  # 250 ms is a typical double-click interval
         return handler
 
-    def double_click_handler(self, table_cell):
+    def make_table_cell_mouse_double_click_handler(self, table_cell, dropdown_cell=None):
         def handler(event):
-            if event.type() == QEvent.MouseButtonDblClick and table_cell.isReadOnly():
-                # Set all table_cells to read-only and all dropdowns to disabled
-                for le in self.scroll_widget.findChildren(QLineEdit):
-                    le.setReadOnly(True)
-                for cb in self.scroll_widget.findChildren(QComboBox):
-                    cb.setEnabled(False)
-                # Now enable only the current cell and dropdown
-                table_cell.setReadOnly(False)
-                table_cell.setFocus()
-                table_cell.setCursorPosition(len(table_cell.text()))
-                row_index = table_cell.property("row_index")
-                for cb in self.scroll_widget.findChildren(QComboBox):
-                    if cb.property("row_index") == row_index:
-                        cb.setEnabled(True)
+            # If a single-click timer is running, stop it (so single-click won't fire)
+            if hasattr(self, "_single_click_timers"):
+                timer = self._single_click_timers.get(table_cell)
+                if timer:
+                    timer.stop()
+            # Now handle double-click logic
+            self._on_table_cell_double_click(table_cell, dropdown_cell)
         return handler
+
+    def _on_table_cell_single_click(self, table_cell, dropdown_cell=None):
+        # Your single-click logic here (was in row_click_handler)
+        if table_cell.isReadOnly():
+            row_index = table_cell.property("row_index")
+            if dropdown_cell:
+                data = {
+                    "name": table_cell.text(),
+                    "type": dropdown_cell.currentText(),
+                    "row_index": row_index
+                }
+                self.row_clicked.emit(data)
+            else:
+                data = {
+                    "thread": table_cell.text(),
+                    "row_index": row_index
+                }
+                self.row_clicked.emit(data)
+
+    def _on_table_cell_double_click(self, table_cell, dropdown_cell=None):
+        # Your double-click logic here (was in double_click_handler)
+        if table_cell.isReadOnly():
+            # Set all table_cells to read-only and all dropdowns to disabled
+            for le in self.scroll_widget.findChildren(QLineEdit):
+                le.setReadOnly(True)
+            for cb in self.scroll_widget.findChildren(QComboBox):
+                cb.setEnabled(False)
+            # Now enable only the current cell and dropdown
+            table_cell.setReadOnly(False)
+            table_cell.setFocus()
+            table_cell.setCursorPosition(len(table_cell.text()))
+            row_index = table_cell.property("row_index")
+            for cb in self.scroll_widget.findChildren(QComboBox):
+                if cb.property("row_index") == row_index:
+                    cb.setEnabled(True)
     
     def emit_search_for_suggestions(self, row_index, table_cell, text_from_signal):
         self.search_for_suggestions.emit({

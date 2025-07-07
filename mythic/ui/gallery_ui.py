@@ -18,6 +18,7 @@ class GalleryUI(QWidget):
     notes_edited = Signal(str)
     close_gallery = Signal(str)
     image_uploaded = Signal(str)
+    list_action_nav_item = Signal(str, object)
 
     def __init__(self, parent, controller, nav_items, existing_stories, first_nav_type, first_nav_id, prev_view, search_with):
         super().__init__(parent)
@@ -39,10 +40,10 @@ class GalleryUI(QWidget):
         self.current_notes = None
         if prev_view in ('game dashboard', 'characters list'):
             self.modal = True
-            self.last_search_options = ("Ascending", "Active", ["Characters", "Places", "Items"], None)
+            self.last_search_options = ["Ascending", "Active", ["Characters", "Places", "Items"], None]
         else:
             self.modal = False
-            self.last_search_options = ("Ascending", "Active", ["Characters", "Places", "Items"], existing_stories_indexes)
+            self.last_search_options = ["Ascending", "Active", ["Characters", "Places", "Items"], existing_stories_indexes]
 
         if self.modal:
             self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
@@ -51,7 +52,7 @@ class GalleryUI(QWidget):
         # Main grid layout
         self.layout = QGridLayout(self)
         if self.modal:
-            self.layout.setContentsMargins(50, 20, 50, 50)
+            self.layout.setContentsMargins(50, 40, 50, 30)
         else:
             self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
@@ -91,15 +92,29 @@ class GalleryUI(QWidget):
         dialog_action.triggered.connect(self.open_search_menu)        
         self.search_box.textEdited.connect(self.emit_current_search_options)
 
-        self.title_label = QLabel("Gallery", close_row_container)
-        self.title_label.setFont(QFont("Arial", 28))
-        self.title_label.setStyleSheet("""
-            background-color: transparent;
-            padding: 10px;                                  
-            color: maroon;
-            font-weight: bold;
-            font-style: italic;
-        """)
+        if not search_with:
+            self.title_or_button_label = QLabel("Gallery", close_row_container)
+            self.title_or_button_label.setFont(QFont("Arial", 28))
+            self.title_or_button_label.setStyleSheet("""
+                background-color: transparent;
+                padding: 10px;                                  
+                color: maroon;
+                font-weight: bold;
+                font-style: italic;
+            """)
+        else:
+            self.title_or_button_label = QPushButton(search_with['action'].capitalize(), close_row_container)
+            self.title_or_button_label.setFixedSize(240, 38)
+            self.title_or_button_label.setStyleSheet("""
+                background-color: maroon;
+                padding: 10px;                                  
+                color: white;
+                font-size: 20px;
+                margin-left: 34px;
+            """)
+            self.title_or_button_label.clicked.connect(self.emit_list_action_nav_item_and_close)
+            self.search_box.hide()
+
         close_button = QPushButton(close_row_container)
         if self.modal:
             close_button.setIcon(QIcon("assets/icons/close_icon.png"))
@@ -115,7 +130,12 @@ class GalleryUI(QWidget):
         close_row_layout = QHBoxLayout(close_row_container)
             
         close_row_layout.addWidget(self.search_box, alignment=Qt.AlignLeft | Qt.AlignVCenter)
-        close_row_layout.addWidget(self.title_label, alignment=Qt.AlignCenter)
+        # close_row_layout.addStretch(1)
+        if not search_with:
+            close_row_layout.addWidget(self.title_or_button_label, alignment=Qt.AlignCenter)
+        else:
+            close_row_layout.addWidget(self.title_or_button_label, alignment=Qt.AlignLeft | Qt.AlignVCenter)
+        # close_row_layout.addStretch(1)
         close_row_layout.addWidget(close_button, alignment=Qt.AlignRight)
         close_row_layout.setContentsMargins(6, 5, 40, 5)
 
@@ -281,12 +301,17 @@ class GalleryUI(QWidget):
 
         self.layout.addWidget(content_frame, 1, 3, 10, 10)
 
+        # Simulate a search if search_with is provided
         if search_with is not None:
-            self.search_box.setText(search_with)
-            self.emit_current_search_options()
+            search_category = [search_with['type'].capitalize() + "s"]  # e.g., "Characters", "Places", "Items"
+            search_text = search_with['name']
+            self.search_box.setText(search_text)
+            self.last_search_options[1] = "All"
+            self.last_search_options[2] = search_category
+            QTimer.singleShot(0, self.emit_current_search_options)
 
+        # Simulate a click on the first nav button
         if self.nav_buttons:
-            # Simulate a click on the first nav button
             if not first_nav_type:
                 first_nav_type = nav_items[0][0]
             else:
@@ -372,7 +397,6 @@ class GalleryUI(QWidget):
     def selected_search_options(self, radio1_val, radio2_val, checkboxes, story_checkboxes):
         self.last_search_options = (radio1_val, radio2_val, checkboxes, story_checkboxes)
         # self.search_options_changed.emit(radio1_val, radio2_val, checkboxes, story_checkboxes)
-        self.emit_current_search_options()
 
     def emit_current_search_options(self, *args):
         # Always emit the current filter state (including search text)
@@ -506,6 +530,10 @@ class GalleryUI(QWidget):
     def emit_details_data_and_close(self):
         self.emit_nav_item_edited_data()
         self.close_gallery.emit(self.prev_view)  # Emit close signal
+
+    def emit_list_action_nav_item_and_close(self):
+        self.emit_details_data_and_close()
+        self.list_action_nav_item.emit(self.current_nav_type, self.current_nav_id)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
