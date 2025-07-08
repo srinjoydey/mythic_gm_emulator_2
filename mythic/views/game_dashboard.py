@@ -143,21 +143,22 @@ class CharactersList(QWidget):
         self.characters_list_model = create_dynamic_model(CharactersListModel, self.table_name)
 
         existing_data_queryset = session.query(self.characters_list_model).all()
-        existing_data = {}
+        self.existing_data = {}
         for data in existing_data_queryset:
-            existing_data[data.row] = {
+            self.existing_data[data.row] = {
                 "name": data.name,
                 "type": data.type,
                 "master_id": data.master_id
             }
 
         # Attach UI with navigation logic
-        self.ui = CharactersThreadsTablesUI(self, controller, "characters", self.story_index, existing_data)
+        self.ui = CharactersThreadsTablesUI(self, controller, "characters", self.story_index, self.existing_data)
         self.ui.search_for_suggestions.connect(self.send_matching_suggestions_for_row)
         self.ui.row_clicked.connect(self.receive_clicked_row_data)
         self.ui.section_label_double_clicked.connect(self.roll_on_characters_list)
         self.ui.row_data_edited.connect(self.receive_edited_row_data)
         self.ui.close_table.connect(self.navigate_to_game_dashboard)
+        self.ui.clear_all_rows.connect(self.clear_all_rows_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
         
     def send_matching_suggestions_for_row(self, current_typed_data_dict):
@@ -203,7 +204,7 @@ class CharactersList(QWidget):
                     first_nav_type=data['type'],
                     first_nav_id=duplicates[0].id,
                     prev_view='characters list',
-                    search_data=data
+                    search_data=data, include_inactive=True
                 )
                 self.controller.current_view.ui.list_action_nav_item.connect(
                     lambda nav_type, nav_id: self.select_or_overwrite_existing_item(nav_type, nav_id, data, master_tables_model)
@@ -217,7 +218,7 @@ class CharactersList(QWidget):
                     first_nav_type=data['type'],
                     first_nav_id=duplicates[0].id,
                     prev_view='characters list',
-                    search_data=data
+                    search_data=data, include_inactive=True
                 )
                 self.controller.current_view.ui.list_action_nav_item.connect(
                     lambda nav_type, nav_id: self.select_or_overwrite_existing_item(nav_type, nav_id, data, master_tables_model)
@@ -324,6 +325,34 @@ class CharactersList(QWidget):
             row_label_result.append(LIST_DICE_ROLL_MAP.get(roll))
 
         self.ui.highlight_rolled_row(section_label_result, row_label_result)
+
+    def clear_all_rows_data(self):
+        character_master_ids = []
+        place_master_ids = []
+        item_master_ids = []
+        for k, v in self.existing_data.items():
+            if v['name'] is not None:
+                if v['type'] == "character":
+                    character_master_ids.append(v['master_id'])
+                elif v['type'] == "place":
+                    place_master_ids.append(v['master_id'])
+                elif v['type'] == "item":
+                    item_master_ids.append(v['master_id'])
+        if character_master_ids:
+            session.query(Characters).filter(Characters.id.in_(character_master_ids)).update({"active": False}, synchronize_session=False)
+        if place_master_ids:
+            session.query(Places).filter(Places.id.in_(place_master_ids)).update({"active": False}, synchronize_session=False)
+        if item_master_ids:
+            session.query(Items).filter(Items.id.in_(item_master_ids)).update({"active": False}, synchronize_session=False)
+
+        session.query(self.characters_list_model).update({
+            "name": None,
+            "type": None,
+            "master_id": None
+        }, synchronize_session=False)
+
+        session.commit()
+        self.controller.show_view(CharactersList, story_index=self.story_index)
 
     def get_background_image(self):
         """Returns the background image path for this view."""

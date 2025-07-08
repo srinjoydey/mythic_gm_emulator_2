@@ -190,7 +190,7 @@ class GameDashboardUI(QWidget):
 
     def start_scene_dialog(self):
         button_labels = ["Test the Expected Scene", "Go to Fate Chart / Oracle", "Cancel"]
-        dlg = TwoOptionsCancelDialog(self, button_labels)
+        dlg = OptionsWithCancelDialog(self, button_labels)
         result = dlg.exec()
         if result == 1:
             self.start_scene_action_selected.emit("expected_scene_test")
@@ -235,7 +235,7 @@ class GameDashboardUI(QWidget):
         QTimer.singleShot(2000, lambda: self.counter_label.setStyleSheet(orig_style))
 
 
-class TwoOptionsCancelDialog(QDialog):
+class OptionsWithCancelDialog(QDialog):
     def __init__(self, parent=None, button_labels_list=None):
         super().__init__(parent)
         # self.setWindowTitle("Start a New Scene")
@@ -285,6 +285,9 @@ class TwoOptionsCancelDialog(QDialog):
         self.button_1.clicked.connect(lambda: self.choose_and_accept(self.button_1_label))
         self.button_2.clicked.connect(lambda: self.choose_and_accept(self.button_2_label))
         self.cancel_btn.clicked.connect(lambda: self.choose_and_accept(None))
+
+        if self.button_2_label == "Cancel":
+            self.cancel_btn.setVisible(False)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -382,13 +385,12 @@ class FocusLineEdit(QLineEdit):
 class CharactersThreadsTablesUI(QWidget):
     row_data_edited = Signal(dict)
     close_table = Signal()
-    """UI Layout with both horizontal and vertical scrolling."""
+    clear_all_rows = Signal()
     search_for_suggestions = Signal(dict)
     row_clicked = Signal(dict)
     section_label_double_clicked = Signal(int, str)
 
     def __init__(self, parent, controller, table_label, story_index, existing_data):
-        from views.game_dashboard import GameDashboardView
         super().__init__(parent)
         self.controller = controller
         self.table_label = table_label
@@ -421,11 +423,24 @@ class CharactersThreadsTablesUI(QWidget):
             background-color: white;
             color: maroon;
         """)
+        clear_all_button = QPushButton(close_row_container)
+        clear_all_button.setIcon(QIcon("assets/icons/close_icon.png"))
+        clear_all_button.setIconSize(QSize(25, 25))
+        clear_all_button.setFont(QFont("Arial", 14, QFont.Bold))
+        clear_all_button.setStyleSheet("""
+            padding: 0px;
+            background-color: white;
+            color: maroon;
+        """)
+
         close_button.clicked.connect(self.close_table)
+        # clear_all_button.clicked.connect(self.clear_all_rows)
+        clear_all_button.clicked.connect(self.clear_all_rows_confirmation)
         close_row_layout = QHBoxLayout(close_row_container)
+        close_row_layout.addWidget(clear_all_button, alignment=Qt.AlignLeft)
         close_row_layout.addWidget(title_label, alignment=Qt.AlignCenter)
         close_row_layout.addWidget(close_button, alignment=Qt.AlignRight)
-        close_row_layout.setContentsMargins(420, 30, 90, 5)
+        close_row_layout.setContentsMargins(70, 30, 90, 5)
         self.layout.addWidget(close_row_container)
 
         # --- Table Container ---
@@ -723,7 +738,7 @@ class CharactersThreadsTablesUI(QWidget):
 
     def prompt_deletion_type(self):
         button_labels = ["Delete from Story", "Delete from Game"]
-        dlg = TwoOptionsCancelDialog(self, button_labels)
+        dlg = OptionsWithCancelDialog(self, button_labels)
         result = dlg.exec()
         if result == QDialog.Accepted:
             return dlg.selected_label
@@ -884,6 +899,14 @@ class CharactersThreadsTablesUI(QWidget):
             # Keep the last highlight (do not clear after last)
 
         highlight_next()
+
+    def clear_all_rows_confirmation(self):
+        """Prompts the user to confirm clearing all rows."""
+        button_labels = ["Clear All Rows", "Cancel"]
+        dlg = OptionsWithCancelDialog(self, button_labels)
+        result = dlg.exec()
+        if result == QDialog.Accepted and dlg.selected_label == "Clear All Rows":
+            self.clear_all_rows.emit()
     
 class DuplicateListItemDialog(QDialog):
     def __init__(self, parent=None):

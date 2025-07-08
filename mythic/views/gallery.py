@@ -10,13 +10,12 @@ MODEL_MAP = {"characters": Characters, "places": Places, "items": Items}
 class GalleryView(QWidget):
     """Handles main menu logic & navigation."""
 
-    def __init__(self, parent, controller, story_index=None, first_nav_type=None, first_nav_id=None, prev_view=None, search_data=None):
+    def __init__(self, parent, controller, story_index=None, first_nav_type=None, first_nav_id=None, prev_view=None, search_data=None, include_inactive=False):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
         existing_stories = {}
         self.multi_story_mode = self.story_index is None
-        self.first_call = True
 
         if self.story_index is None:
             existing_stories = {story.index: story.name for story in session.query(StoriesIndex).all()}
@@ -28,7 +27,7 @@ class GalleryView(QWidget):
             self.places_queryset = self.places_base_queryset
             self.items_queryset = self.items_base_queryset
 
-            if self.first_call: # Only toggle active/inactive on the first call
+            if not include_inactive: # Only toggle active/inactive on the first call
                 self.toggle_active_inactive("Active")
 
             self.get_list_from_queryset(mutli_story_mode=True)
@@ -41,7 +40,7 @@ class GalleryView(QWidget):
             self.places_queryset = self.places_base_queryset
             self.items_queryset = self.items_base_queryset
 
-            if self.first_call: # Only toggle active/inactive on the first call
+            if not include_inactive: # Only toggle active/inactive on the first call
                 self.toggle_active_inactive("Active")
 
             self.get_list_from_queryset(mutli_story_mode=False)
@@ -55,8 +54,6 @@ class GalleryView(QWidget):
         self.ui.close_gallery.connect(self.navigate_to_previous_view)
         self.ui.image_uploaded.connect(self.save_uploaded_image)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
-
-        self.first_call = False
 
     def get_list_from_queryset(self, mutli_story_mode):
         if mutli_story_mode:
