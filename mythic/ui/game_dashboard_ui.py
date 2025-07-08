@@ -12,6 +12,7 @@ class GameDashboardUI(QWidget):
     threads_button_clicked = Signal()
     gallery_modal_button_clicked = Signal()
     main_menu_button_clicked = Signal()
+    existing_stories_button_clicked = Signal()
     chaos_factor_changed = Signal(int)
     start_scene_action_selected = Signal(str)
     start_scene_action_resolution = Signal(str)
@@ -66,11 +67,10 @@ class GameDashboardUI(QWidget):
 
         # Bottom Content Frame (for additional content)
         self.bottom_content_frame = QFrame(self)
-        self.bottom_content_frame.setStyleSheet("background-color: transparent;")
         self.bottom_layout = QHBoxLayout(self.bottom_content_frame)
         self.bottom_layout.setContentsMargins(0, 0, 0, 0)
         self.layout.addWidget(self.bottom_content_frame, 3, 0, 1, 6)
-
+        self.create_bottom_content()
 
 
     def create_left_content_buttons(self):
@@ -117,8 +117,7 @@ class GameDashboardUI(QWidget):
         # Define menu buttons dynamically
         signals = [
             ("Characters", self.characters_button_clicked),
-            ("Threads", self.threads_button_clicked),
-            ("Main Menu", self.main_menu_button_clicked),            
+            ("Threads", self.threads_button_clicked),          
         ]
         button_width, button_height = 250, 60
         button_font_size = 20
@@ -132,6 +131,25 @@ class GameDashboardUI(QWidget):
             btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             btn.clicked.connect(signal.emit)
             self.right_content_button_layout.addWidget(btn)
+
+    def create_bottom_content(self):
+        buttons = [
+            ("Main Menu", self.main_menu_button_clicked),  
+            ("Existing Stories", self.existing_stories_button_clicked),
+        ]
+
+        button_width, button_height = 250, 60
+        button_font_size = 20
+
+        self.right_content_button_layout.setSpacing(10)
+
+        for text, signal in buttons:
+            btn = QPushButton(text, self.right_content_frame)
+            btn.setFont(QFont("Arial", button_font_size))
+            btn.setMinimumSize(button_width, button_height)
+            btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            btn.clicked.connect(signal.emit)
+            self.bottom_layout.addWidget(btn)
 
     def create_chaos_factor_counter(self, parent_widget):
         # --- Counter Widget ---

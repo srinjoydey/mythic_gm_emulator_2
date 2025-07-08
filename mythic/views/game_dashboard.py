@@ -45,7 +45,8 @@ class GameDashboardView(QWidget):
         self.ui.characters_button_clicked.connect(lambda: self.navigate_to_characters_list(self.story_index))
         self.ui.threads_button_clicked.connect(lambda: self.navigate_to_threads_list(self.story_index))
         self.ui.gallery_modal_button_clicked.connect(lambda: self.navigate_to_gallery_modal(self.story_index))
-        self.ui.main_menu_button_clicked.connect(lambda: self.navigate_to_main_menu())
+        self.ui.main_menu_button_clicked.connect(self.navigate_to_main_menu)
+        self.ui.existing_stories_button_clicked.connect(self.navigate_to_existing_stories)
         self.ui.start_scene_action_selected.connect(self.handle_start_scene_action)
         self.ui.start_scene_action_resolution.connect(self.resolve_start_scene_action)
         self.ui.chaos_factor_changed.connect(self.post_updated_chaos_factor)
@@ -89,7 +90,21 @@ class GameDashboardView(QWidget):
         self.story.chaos_factor = new_chaos_factor
         session.flush()
         session.commit()
-        # Update the UI or perform any necessary actions with the new chaos factor
+
+    def navigate_to_main_menu(self):
+        from views.main_menu import MainMenu
+
+        self.controller.show_view(MainMenu)
+
+    def navigate_to_existing_stories(self):
+        from views.main_menu import ExistingStoryView
+
+        all_stories = session.query(StoriesIndex).all()
+        if not all_stories or all(story.name is None for story in all_stories):
+            self.ui.show_message_under_existing_btn("No stories found. Please create a New Story.")
+        else:
+            self.controller.show_view(ExistingStoryView, all_stories=all_stories)
+
 
     def roll_and_update_chaos_factor(self):
         roll = get_dice_roll_result(10)[0]
