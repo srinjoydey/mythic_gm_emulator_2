@@ -7,7 +7,7 @@ from models.master_tables import StoriesIndex, Characters, Places, Items, Notes,
 from models.story_tables import create_dynamic_model, CharactersList as CharactersListModel, ThreadsList as ThreadsListModel
 import os
 import glob
-from utils.game_dashboard_utils import get_dice_roll_result
+from utils.utils_functions import get_dice_roll_result
 
 
 class MainMenu(QWidget):
@@ -206,6 +206,7 @@ class OraclesTablesView(QWidget):
         self.ui.nav_item_double_clicked.connect(self.roll_on_double_clicked_table)
         self.ui.fate_intersection_cell.connect(self.roll_on_fate_chart)
         self.ui.close_oracles_tables_window.connect(self.navigate_to_previous_view)
+        self.ui.fate_roll_identical_digits.connect(self.navigate_to_random_events_table)
         # Layout to ensure proper expansion
         self.setLayout(self.ui.layout)
 
@@ -230,19 +231,37 @@ class OraclesTablesView(QWidget):
             if table_name == "Scene Adjustment Table":
                 result = get_dice_roll_result(10, flutter=False)
                 # self.ui.display_roll_result(table_name, result)
-                print("Rolling result:", *result)
+                print("Dice:", *result)
                 self.ui.highlight_roll_result(result, table_name)
             elif table_name == "Random Event Focus Table":
                 result = get_dice_roll_result(100, flutter=False)
                 # self.ui.display_roll_result(table_name, result)
-                print("Rolling result:", *result)
+                print("Dice:", *result)
                 self.ui.highlight_roll_result(result, table_name)
             else:
                 result = get_dice_roll_result(100, flutter=True)
                 # self.ui.display_roll_result(table_name, result)
-                print("Rolling result:", *result)
+                print("Dice:", *result)
                 self.ui.highlight_roll_result(result)
 
     def roll_on_fate_chart(self, row_idx, col_idx, cell_content_tuple):
         """Rolls on the Fate Chart and updates the UI."""
-        print("row_idx:", row_idx, "col_idx:", col_idx, "cell_content_tuple:", cell_content_tuple)
+        dice_result = get_dice_roll_result(100)[0]
+        if dice_result <= cell_content_tuple[0]:
+            fate_result = "Exceptional Yes"
+            colour = "green"
+        elif dice_result <= cell_content_tuple[1]:
+            fate_result = "Yes"
+            colour = "lightgreen"
+        elif dice_result < cell_content_tuple[2]:
+            fate_result = "No"
+            colour = "orange"
+        else:
+            fate_result = "Exceptional No"
+            colour = "red"
+        # self.ui.show_fate_roll_result(row_idx, col_idx, dice_result, fate_result, colour)
+        self.ui.show_fate_roll_result(row_idx, col_idx, 66, fate_result, colour)
+
+    def navigate_to_random_events_table(self):
+        """Navigates to the Random Events Table."""
+        self.controller.show_view(OraclesTablesView, prev_view="oracles tables", story_index=self.story_index, chaos_factor=self.chaos_factor, first_nav_item="Random Event Focus Table")

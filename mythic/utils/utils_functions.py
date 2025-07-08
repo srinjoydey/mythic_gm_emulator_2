@@ -2,8 +2,6 @@ from PySide6.QtWidgets import QPushButton
 import random
 
 
-## --- UI --- ##
-
 def align_dialog_to_button(dialog, parent, button_layout_attr="center_content_button_layout", button_text="Start a Scene"):
     btn = None
     if hasattr(parent, button_layout_attr):
@@ -31,3 +29,12 @@ def get_dice_roll_result(sides_of_dice, flutter=False):
             roll.append(random.randint(1, sides_of_dice))
 
     return roll
+
+def scroll_to_widget(nav_scroll_area, widget):
+    # Ensure the highlighted widget is visible in the scroll area
+    if widget:
+        area = nav_scroll_area
+        widget_rect = widget.geometry()
+        # Map widget's rect to the scroll area's coordinate system
+        target = widget.mapTo(area.viewport(), widget_rect.topLeft())
+        area.ensureVisible(target.x(), target.y(), widget_rect.width(), widget_rect.height())

@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView
 from PySide6.QtGui import QFont, QIcon, QColor, QPixmap
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
-from utils.game_dashboard_utils import align_dialog_to_button, get_dice_roll_result
+from utils.utils_functions import align_dialog_to_button, get_dice_roll_result
+from utils.utils_classes import DiceResultDialog
 
 
 class GameDashboardUI(QWidget):
@@ -14,6 +15,7 @@ class GameDashboardUI(QWidget):
     chaos_factor_changed = Signal(int)
     start_scene_action_selected = Signal(str)
     start_scene_action_resolution = Signal(str)
+    roll_for_chaos_factor = Signal()
 
     def __init__(self, parent, controller, story_index):
         super().__init__(parent)
@@ -194,14 +196,26 @@ class GameDashboardUI(QWidget):
 
             # dlg.highlight_and_close_signal.connect(self.start_scene_action_resolution)
             dlg.highlight_and_close_signal.connect(lambda action: self.start_scene_action_resolution.emit(action))
-            # dlg.highlight_and_close_signal.connect(lambda action: print("Signal received:", action) or self.start_scene_action_resolution.emit(action))
             dlg.highlight_and_close(row_to_highlight)
 
         QTimer.singleShot(500, after_func)  # Simulate delay; replace as needed
         dlg.exec()
 
     def end_scene_dialog(self):
-        pass
+        self.roll_for_chaos_factor.emit()
+
+    def show_chaos_factor_roll_result(self, dice_result, fate_result, colour):
+        """Shows the result of the chaos factor roll."""
+        dlg = DiceResultDialog(self, colour, dice_result, fate_result)
+        QTimer.singleShot(2500, dlg.accept) 
+        dlg.exec()
+
+        # Add white halo effect to the chaos factor label for 2 seconds after dialog closes
+        orig_style = self.counter_label.styleSheet()
+        halo_style = orig_style + "border: 2px solid white;"
+        self.counter_label.setStyleSheet(halo_style)
+        QTimer.singleShot(2000, lambda: self.counter_label.setStyleSheet(orig_style))
+
 
 class TwoOptionsCancelDialog(QDialog):
     def __init__(self, parent=None, button_labels_list=None):
@@ -353,6 +367,7 @@ class CharactersThreadsTablesUI(QWidget):
     """UI Layout with both horizontal and vertical scrolling."""
     search_for_suggestions = Signal(dict)
     row_clicked = Signal(dict)
+    section_label_double_clicked = Signal(int, str)
 
     def __init__(self, parent, controller, table_label, story_index, existing_data):
         from views.game_dashboard import GameDashboardView
@@ -416,7 +431,7 @@ class CharactersThreadsTablesUI(QWidget):
         # Create table structure
         row_index = 1
 
-        for section_label in section_labels:
+        for section_idx, section_label in enumerate(section_labels):
             # **Section Label (Spans 5 Rows, 2 Columns)**
             section_label_widget = QLabel(section_label, scroll_widget)
             section_label_widget.setFont(QFont("Arial", 14, QFont.Bold))
@@ -431,6 +446,7 @@ class CharactersThreadsTablesUI(QWidget):
                 color: black;
                 font-weight: bold;
             """)
+            section_label_widget.setProperty("row_index", 1 + section_idx * 5)
             scroll_layout.addWidget(section_label_widget, row_index, 0, 5, 3)
 
             for i in range(5):
@@ -448,6 +464,8 @@ class CharactersThreadsTablesUI(QWidget):
                     color: black;
                     font-weight: bold;
                 """)
+                row_label.setProperty("row_index", row_index)
+                row_label.setProperty("original_stylesheet", row_label.styleSheet())
                 scroll_layout.addWidget(row_label, row_index, 3, 1, 3)
 
                 clear_out_row_button = ClickableLabel(scroll_widget)
@@ -470,6 +488,7 @@ class CharactersThreadsTablesUI(QWidget):
                 """)
                 table_cell.setReadOnly(True)
                 table_cell.setProperty("row_index", row_index)
+                table_cell.setProperty("original_stylesheet", table_cell.styleSheet())
 
                 dropdown_cell = None
                 if self.table_label == "characters":
@@ -489,12 +508,15 @@ class CharactersThreadsTablesUI(QWidget):
                     dropdown_cell.setEditable(False)
                     dropdown_cell.setEnabled(False)
                     dropdown_cell.setProperty("row_index", row_index)
+                    dropdown_cell.setProperty("original_stylesheet", dropdown_cell.styleSheet())
 
                     if row_index in rows_to_be_updated:
                         table_cell.setText(self.existing_data[row_index]["name"])
                         dropdown_cell.setCurrentText(self.existing_data[row_index]["type"])
 
                     # --- Editable logic ---
+                    section_label_widget.mouseDoubleClickEvent = self.make_section_label_double_click_handler(section_label_widget)
+                    row_label.mousePressEvent = self.make_table_cell_mouse_press_handler(table_cell, dropdown_cell)
                     table_cell.mousePressEvent = self.make_table_cell_mouse_press_handler(table_cell, dropdown_cell)
                     table_cell.mouseDoubleClickEvent = self.make_table_cell_mouse_double_click_handler(table_cell, dropdown_cell)
                     table_cell.textEdited.connect(self.debounced_emit_search_for_suggestions)
@@ -552,6 +574,29 @@ class CharactersThreadsTablesUI(QWidget):
                     timer.stop()
             # Now handle double-click logic
             self._on_table_cell_double_click(table_cell, dropdown_cell)
+        return handler
+
+    def make_section_label_double_click_handler(self, section_label_widget):
+        def handler(event):
+            # Find the last row_index with data in any table_cell
+            last_row_with_data = None
+            for le in self.scroll_widget.findChildren(QLineEdit):
+                row_idx = le.property("row_index")
+                if le.text().strip():
+                    last_row_with_data = row_idx
+
+            if last_row_with_data is not None:
+                # Find the section label text for this row
+                section_label_text = None
+                for section_label in self.scroll_widget.findChildren(QLabel):
+                    # Only consider section labels (not row labels)
+                    if section_label.property("row_index") is not None:
+                        start_row = section_label.property("row_index")
+                        if start_row <= last_row_with_data < start_row + 5:
+                            section_label_text = section_label.text()
+                            break
+                if section_label_text is not None:
+                    self.section_label_double_clicked.emit(last_row_with_data, section_label_text)
         return handler
 
     def _on_table_cell_single_click(self, table_cell, dropdown_cell=None):
@@ -709,6 +754,118 @@ class CharactersThreadsTablesUI(QWidget):
                 }
                 self.row_data_edited.emit(data)
 
+    def highlight_rolled_row(self, section_label_result, row_label_result):
+        def clear_highlights():
+            for row_label in self.scroll_widget.findChildren(ClickableLabel):
+                orig = row_label.property("original_stylesheet")
+                if orig:
+                    row_label.setStyleSheet(orig)
+            for le in self.scroll_widget.findChildren(QLineEdit):
+                orig = le.property("original_stylesheet")
+                if orig:
+                    le.setStyleSheet(orig)
+            for cb in self.scroll_widget.findChildren(QComboBox):
+                orig = cb.property("original_stylesheet")
+                if orig:
+                    cb.setStyleSheet(orig)
+
+        def highlight_row_in_section(section_label_str, row_label_str):
+            highlight_override = "background-color: #ffe066; color: black;"
+            # Find the section's starting row index
+            section_start_row = None
+            for section_label in self.scroll_widget.findChildren(QLabel):
+                if section_label.property("row_index") is not None and section_label.text() == section_label_str:
+                    section_start_row = section_label.property("row_index")
+                    break
+            if section_start_row is None:
+                return  # Section not found
+
+            # Find the row index for the row_label_str in this section
+            target_row_index = None
+            for i in range(5):
+                row_idx = section_start_row + i
+                for row_label in self.scroll_widget.findChildren(ClickableLabel):
+                    if row_label.property("row_index") == row_idx and row_label.text() == row_label_str:
+                        # Highlight the row label
+                        orig = row_label.property("original_stylesheet")
+                        if orig:
+                            row_label.setStyleSheet(orig + highlight_override)
+                        else:
+                            row_label.setStyleSheet(highlight_override)
+                        target_row_index = row_idx
+                        break
+                if target_row_index is not None:
+                    break
+
+            if target_row_index is None:
+                return  # Row label not found in section
+
+            # Highlight the table cell for this row
+            for le in self.scroll_widget.findChildren(QLineEdit):
+                if le.property("row_index") == target_row_index:
+                    orig = le.property("original_stylesheet")
+                    if orig:
+                        le.setStyleSheet(orig + highlight_override)
+                    else:
+                        le.setStyleSheet(highlight_override)
+            # Highlight dropdown cell (if present)
+            for cb in self.scroll_widget.findChildren(QComboBox):
+                if cb.property("row_index") == target_row_index:
+                    orig = cb.property("original_stylesheet")
+                    if orig:
+                        cb.setStyleSheet(orig + highlight_override)
+                    else:
+                        cb.setStyleSheet(highlight_override)
+
+        # Only use the first section_label_result (per your requirement)
+        if isinstance(section_label_result, (list, tuple)):
+            section_label_str = section_label_result[0]
+        else:
+            section_label_str = section_label_result
+
+        # Ensure row_label_result is a list
+        if not isinstance(row_label_result, (list, tuple)):
+            row_label_result = [row_label_result]
+
+        # Only highlight rows within the section
+        valid_row_labels = []
+        # Find the 5 row_labels in this section
+        section_start_row = None
+        for section_label in self.scroll_widget.findChildren(QLabel):
+            if section_label.property("row_index") is not None and section_label.text() == section_label_str:
+                section_start_row = section_label.property("row_index")
+                break
+        section_row_labels = []
+        if section_start_row is not None:
+            for i in range(5):
+                row_idx = section_start_row + i
+                for row_label in self.scroll_widget.findChildren(ClickableLabel):
+                    if row_label.property("row_index") is not None and row_label.text().strip():
+                        if row_label.property("row_index") == row_idx:
+                            section_row_labels.append(row_label.text())
+                            break
+
+        # Only keep row_label_results that are present in this section
+        for r in row_label_result:
+            if r in section_row_labels:
+                valid_row_labels.append(r)
+
+        # If nothing to highlight, return
+        if not valid_row_labels:
+            return
+
+        self._highlight_sequence = valid_row_labels
+        self._highlight_sequence_pos = 0
+
+        def highlight_next():
+            clear_highlights()
+            highlight_row_in_section(section_label_str, self._highlight_sequence[self._highlight_sequence_pos])
+            self._highlight_sequence_pos += 1
+            if self._highlight_sequence_pos < len(self._highlight_sequence):
+                QTimer.singleShot(2000, highlight_next)
+            # Keep the last highlight (do not clear after last)
+
+        highlight_next()
     
 class DuplicateListItemDialog(QDialog):
     def __init__(self, parent=None):

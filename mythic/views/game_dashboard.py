@@ -1,11 +1,24 @@
 from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import QTimer
 from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapted for PySide6
 from models.master_tables import StoriesIndex, Characters, Places, Items, Notes
 from models.db_config import session
 from utils.static_data.tables_index import TESTING_THE_EXPECTED_SCENE
- 
+from utils.utils_functions import get_dice_roll_result 
 
 MODEL_MAP = {"character": Characters, "place": Places, "item": Items}
+LIST_DICE_ROLL_MAP = {
+    1: "1 - 2",
+    2: "1 - 2",
+    3: "3 - 4",
+    4: "3 - 4",
+    5: "5 - 6",
+    6: "5 - 6",
+    7: "7 - 8",
+    8: "7 - 8",
+    9: "9 - 10",
+    10: "9 - 10"
+}
 
 class GameDashboardView(QWidget):
     """Handles main menu logic & navigation."""
@@ -36,6 +49,7 @@ class GameDashboardView(QWidget):
         self.ui.start_scene_action_selected.connect(self.handle_start_scene_action)
         self.ui.start_scene_action_resolution.connect(self.resolve_start_scene_action)
         self.ui.chaos_factor_changed.connect(self.post_updated_chaos_factor)
+        self.ui.roll_for_chaos_factor.connect(self.roll_and_update_chaos_factor)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
     def navigate_to_oracles_tables(self):
@@ -77,6 +91,22 @@ class GameDashboardView(QWidget):
         session.commit()
         # Update the UI or perform any necessary actions with the new chaos factor
 
+    def roll_and_update_chaos_factor(self):
+        roll = get_dice_roll_result(10)[0]
+        if roll <= self.chaos_factor:
+            new_chaos_factor = max(1, self.chaos_factor - 1)
+            colour = "green"
+            result = "Chaos Decreased"
+        else:
+            new_chaos_factor = min(9, self.chaos_factor + 1)
+            colour = "red"
+            result = "Chaos Increased"
+        self.chaos_factor = new_chaos_factor
+        self.post_updated_chaos_factor(self.chaos_factor)
+        QTimer.singleShot(1000, lambda: self.ui.counter_label.setText(str(self.chaos_factor)))
+        # QTimer.singleShot(1000, lambda: self.controller.show_view(GameDashboardView, story_index=self.story_index))
+        self.ui.show_chaos_factor_roll_result(roll, result, colour)
+
     def get_background_image(self):
         """Returns the background image path for this view."""
         try:
@@ -110,6 +140,7 @@ class CharactersList(QWidget):
         self.ui = CharactersThreadsTablesUI(self, controller, "characters", self.story_index, existing_data)
         self.ui.search_for_suggestions.connect(self.send_matching_suggestions_for_row)
         self.ui.row_clicked.connect(self.receive_clicked_row_data)
+        self.ui.section_label_double_clicked.connect(self.roll_on_characters_list)
         self.ui.row_data_edited.connect(self.receive_edited_row_data)
         self.ui.close_table.connect(self.navigate_to_game_dashboard)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
@@ -265,6 +296,19 @@ class CharactersList(QWidget):
         session.flush()
         session.commit()
         self.controller.show_view(CharactersList, story_index=self.story_index)
+
+    def roll_on_characters_list(self, row_index, section_label_text):
+        """Rolls on the characters list based on the section label."""
+        section_label_result = ["1 - 2"]
+        row_label_result = []
+        if section_label_text != "1 - 2":
+            section_label_dice_result = get_dice_roll_result(int(section_label_text.split(" - ")[1]))
+            section_label_result = [LIST_DICE_ROLL_MAP.get(section_label_dice_result[0])]
+        row_label_dice_result = get_dice_roll_result(10, flutter=True)
+        for roll in row_label_dice_result:
+            row_label_result.append(LIST_DICE_ROLL_MAP.get(roll))
+
+        self.ui.highlight_rolled_row(section_label_result, row_label_result)
 
     def get_background_image(self):
         """Returns the background image path for this view."""

@@ -3,7 +3,8 @@ from PySide6.QtGui import QFont, QIcon
 from PySide6.QtCore import Qt, Signal, QTimer, QSize, Slot
 from views.game_dashboard import GameDashboardView
 import warnings
-from utils.main_menu_utils import scroll_to_widget
+from utils.utils_functions import scroll_to_widget
+from utils.utils_classes import DiceResultDialog
 
 
 # To suppress RuntimeWarning that arises when disconnecting signals that may not have been connected in ln 350
@@ -498,6 +499,7 @@ class OraclesTablesUI(QWidget):
     nav_item_double_clicked = Signal(str)
     close_oracles_tables_window = Signal(str)
     fate_intersection_cell = Signal(int, int, tuple)
+    fate_roll_identical_digits = Signal()
 
     def __init__(self, parent, controller, nav_items, first_nav_item, prev_view, chaos_factor):
         super().__init__(parent)
@@ -1034,6 +1036,14 @@ class OraclesTablesUI(QWidget):
 
         # Schedule the first highlight with a timer to ensure consistent timing
         QTimer.singleShot(500, do_highlight)
+
+    def show_fate_roll_result(self, row_idx, col_idx, dice_result, fate_result, colour):
+        dlg = DiceResultDialog(self, colour, dice_result, fate_result)
+        dlg.exec()
+        if len(str(dice_result)) == 2:
+            if str(dice_result)[0] == str(dice_result)[1]:
+                self.fate_roll_identical_digits.emit()
+
 
 class DoubleClickableButton(QPushButton):
     doubleClicked = Signal(str)  # Will emit the nav_item/table name
