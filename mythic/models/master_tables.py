@@ -80,3 +80,14 @@ class Notes(Base):
     notes = Column(Text, nullable=True)
     created_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST))
     modified_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST), onupdate=lambda: datetime.now().replace(tzinfo=IST))
+
+class ThreadsNotes(Base):
+    __tablename__ = "threads_notes"
+
+    id = Column(Integer, primary_key=True)
+    thread_id = Column(Integer, nullable=True)
+    story_index = Column(Integer, nullable=True)
+    active = Column(Boolean, default=True)
+    notes = Column(Text, nullable=True)
+    created_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST))
+    modified_date = Column(DateTime, default=lambda: datetime.now().replace(tzinfo=IST), onupdate=lambda: datetime.now().replace(tzinfo=IST))

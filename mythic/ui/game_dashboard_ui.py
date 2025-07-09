@@ -563,16 +563,19 @@ class CharactersThreadsTablesUI(QWidget):
                     if row_index in rows_to_be_updated:
                         table_cell.setText(self.existing_data[row_index]["thread"])
 
-                    row_label.mousePressEvent = self.row_click_handler(table_cell)
-                    table_cell.mousePressEvent = self.row_click_handler(table_cell)
-                    table_cell.mouseDoubleClickEvent = self.double_click_handler(table_cell)
+                    section_label_widget.mouseDoubleClickEvent = self.make_section_label_double_click_handler(section_label_widget)
+                    row_label.mousePressEvent = self.make_table_cell_mouse_press_handler(table_cell)
+                    table_cell.mousePressEvent = self.make_table_cell_mouse_press_handler(table_cell)
+                    table_cell.mouseDoubleClickEvent = self.make_table_cell_mouse_double_click_handler(table_cell)
                     table_cell.textEdited.connect(self.debounced_emit_search_for_suggestions)
-                    table_cell.editingFinished.connect(self.finish_edit_handler(table_cell))
                     table_cell.editingFinished.connect(self.edited_row_data)
 
                 clear_out_row_button.clicked.connect(lambda row=row_index: self.emit_deleted_row_data(row))
                 scroll_layout.addWidget(clear_out_row_button, row_index, 6, 1, 1)
-                scroll_layout.addWidget(table_cell, row_index, 7, 1, 9)
+                if self.table_label == "characters":
+                    scroll_layout.addWidget(table_cell, row_index, 7, 1, 9)
+                else:
+                    scroll_layout.addWidget(table_cell, row_index, 7, 1, 12)
                 row_index += 1
 
         scroll_area.setWidget(scroll_widget)
@@ -701,10 +704,10 @@ class CharactersThreadsTablesUI(QWidget):
     def edited_row_data(self):
         sender = self.sender()
         row_index = sender.property("row_index")
-        # ...inside edited_row_data...
+        table_cell = None
+
         if self.table_label == "characters":
-            # sender is dropdown_cell
-            table_cell = None
+            # Find the table_cell and dropdown_cell for this row
             for le in self.scroll_widget.findChildren(QLineEdit):
                 if le.property("row_index") == row_index:
                     table_cell = le
@@ -719,7 +722,12 @@ class CharactersThreadsTablesUI(QWidget):
                 self.row_data_edited.emit(data)
                 table_cell.clearFocus()
         elif self.table_label == "threads":
-            if sender.text():
+            # Find the table_cell for this row
+            for le in self.scroll_widget.findChildren(QLineEdit):
+                if le.property("row_index") == row_index:
+                    table_cell = le
+                    break
+            if table_cell and sender.text():
                 data = {
                     "row": row_index,
                     "thread": sender.text(),

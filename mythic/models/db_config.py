@@ -19,10 +19,10 @@ session = SessionLocal()
 
 def initialize_db():
     """Creates the database and populates specific tables if missing."""
-    from .master_tables import StoriesIndex, Characters, Places, Items, Threads, Notes
+    from .master_tables import StoriesIndex, Characters, Places, Items, Threads, Notes, ThreadsNotes
     inspector = inspect(engine)
-    
-    models = [StoriesIndex, Characters, Places, Items, Threads, Notes]  # List all models
+
+    models = [StoriesIndex, Characters, Places, Items, Threads, Notes, ThreadsNotes]  # List all models
 
     try:
         for model in models:

@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import QTimer
 from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapted for PySide6
-from models.master_tables import StoriesIndex, Characters, Places, Items, Notes
+from models.master_tables import StoriesIndex, Characters, Places, Items, Notes, Threads, ThreadsNotes
 from models.db_config import session
 from utils.static_data.tables_index import TESTING_THE_EXPECTED_SCENE
 from utils.utils_functions import get_dice_roll_result 
@@ -382,19 +382,115 @@ class ThreadsList(QWidget):
         existing_data = {}
         for data in existing_data_queryset:
             existing_data[data.row] = {
-                "thread": data.thread
+                "thread": data.thread,
+                "master_id": data.master_id
             }
 
         # Attach UI with navigation logic
         self.ui = CharactersThreadsTablesUI(self, controller, "threads", self.story_index, existing_data)
+        self.ui.search_for_suggestions.connect(self.send_matching_suggestions_for_row)
+        self.ui.row_clicked.connect(self.receive_clicked_row_data)
+        self.ui.section_label_double_clicked.connect(self.roll_on_threads_list)
+        self.ui.row_data_edited.connect(self.receive_edited_row_data)
+        self.ui.close_table.connect(self.navigate_to_game_dashboard)
+        self.ui.clear_all_rows.connect(self.clear_all_rows_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
-        
-    def receive_edited_rows_data(self, data):
-        """Receives edited data from UI when closing."""
-        for row, thread_data in data.items():
-            session.query(self.threads_list_model).filter(self.threads_list_model.row == row).update({"thread": thread_data["thread"]})
-            session.commit()
 
+    def send_matching_suggestions_for_row(self, current_typed_data_dict):
+        print(f"Current typed data in row {current_typed_data_dict['row']} is {current_typed_data_dict['data']}")
+
+    def receive_clicked_row_data(self, data):
+        from views.gallery import GalleryView
+        if data['thread']:
+            result = session.query(self.threads_list_model).filter(
+                self.threads_list_model.row == data['row_index'],
+                self.threads_list_model.thread == data['thread'],
+            ).first()
+            if result:
+                master_id = result.master_id
+            self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_id=master_id, prev_view='threads_list')
+            self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_id=master_id, prev_view='threads_list')
+
+    def receive_edited_row_data(self, data):
+        data_action = data.get("action")
+
+        if data_action == "delete":
+            # Remove from story-specific list
+            self.delete_row_data(data)
+        else:
+            self.create_row_data(data)
+
+    def create_row_data(self, data):
+        from models.master_tables import Threads
+        new_master_data = Threads(thread=data["thread"], story_index=self.story_index)
+        session.add(new_master_data)
+        session.commit()
+        new_master_data_id = new_master_data.id
+        new_notes_add = ThreadsNotes(thread_id=new_master_data_id, story_index=self.story_index)
+        session.add(new_notes_add)
+        session.commit()
+
+        # Update the dynamic characters list table specific to the story
+        session.query(self.threads_list_model).filter(self.threads_list_model.row == data['row']).update({
+            "thread": data["thread"],
+            "master_id": new_master_data_id
+        })
+        session.flush()
+        session.commit()  # Commit once at the end
+        self.controller.show_view(ThreadsList, story_index=self.story_index)
+
+    def delete_row_data(self, data):
+        session.query(self.threads_list_model).filter(self.threads_list_model.row == data['row']).update({
+            "thread": None,
+            "master_id": None
+        })
+        # Handle deletion of the row
+        session.flush()
+        session.commit()
+        deletion_type = self.ui.prompt_deletion_type()
+        self.controller.show_view(ThreadsList, story_index=self.story_index)
+
+        if deletion_type == "Delete from Story":
+            # Also mark the master data as inactive
+            session.query(Threads).filter(Threads.id == data["master_id"]).update({"active": False})
+            # Mark related notes as inactive
+            session.query(ThreadsNotes).filter(ThreadsNotes.thread_id == data["master_id"]).update({"active": False})
+
+        if deletion_type == "Delete from Game":
+            # Also delete from the master data
+            session.query(Threads).filter(Threads.id == data["master_id"]).delete()
+            # Delete related notes
+            session.query(ThreadsNotes).filter(ThreadsNotes.thread_id == data["master_id"]).delete()
+
+        session.commit()
+        return
+    
+    def roll_on_threads_list(self, row_index, section_label_text):
+        """Rolls on the threads list based on the section label."""
+        section_label_result = ["1 - 2"]
+        row_label_result = []
+        if section_label_text != "1 - 2":
+            section_label_dice_result = get_dice_roll_result(int(section_label_text.split(" - ")[1]))
+            section_label_result = [LIST_DICE_ROLL_MAP.get(section_label_dice_result[0])]
+        row_label_dice_result = get_dice_roll_result(10, flutter=True)
+        for roll in row_label_dice_result:
+            row_label_result.append(LIST_DICE_ROLL_MAP.get(roll))
+
+        self.ui.highlight_rolled_row(section_label_result, row_label_result)
+
+    def clear_all_rows_data(self):
+        for k, v in self.ui.existing_data.items():
+            if v['thread'] is not None:
+                session.query(Threads).filter(Threads.id == v['master_id']).update({"active": False}, synchronize_session=False)
+
+        session.query(self.threads_list_model).update({
+            "thread": None,
+            "master_id": None
+        }, synchronize_session=False)
+
+        session.commit()
+        self.controller.show_view(ThreadsList, story_index=self.story_index)
+    
     def get_background_image(self):
         """Returns the background image path for this view."""
         try:
@@ -402,10 +498,6 @@ class ThreadsList(QWidget):
         except AttributeError:
             pass
 
-        # At the end of scene, roll d10. If roll <= chaos_factor, chaos_factor-1. Else chaos_factor+1. Chaos factor cannot be less than 1 or greater than 9
-        # roll = random.randint(1, 10)
-        # if roll <= self.chaos_factor:
-        #     self.chaos_factor = max(1, self.chaos_factor - 1)
-        # else:
-        #     self.chaos_factor = min(9, self.chaos_factor + 1)
-        # self.chaos_factor_changed.emit(self.chaos_factor)
+    def navigate_to_game_dashboard(self):
+        """Navigates back to the game dashboard."""
+        self.controller.show_view(GameDashboardView, story_index=self.story_index)
