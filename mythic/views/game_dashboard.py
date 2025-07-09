@@ -105,22 +105,18 @@ class GameDashboardView(QWidget):
         else:
             self.controller.show_view(ExistingStoryView, all_stories=all_stories)
 
-
     def roll_and_update_chaos_factor(self):
         roll = get_dice_roll_result(10)[0]
         if roll <= self.chaos_factor:
             new_chaos_factor = max(1, self.chaos_factor - 1)
             colour = "green"
-            result = "Chaos Decreased"
         else:
             new_chaos_factor = min(9, self.chaos_factor + 1)
             colour = "red"
-            result = "Chaos Increased"
         self.chaos_factor = new_chaos_factor
         self.post_updated_chaos_factor(self.chaos_factor)
-        QTimer.singleShot(1000, lambda: self.ui.counter_label.setText(str(self.chaos_factor)))
-        # QTimer.singleShot(1000, lambda: self.controller.show_view(GameDashboardView, story_index=self.story_index))
-        self.ui.show_chaos_factor_roll_result(roll, result, colour)
+        QTimer.singleShot(3000, lambda: self.ui.counter_label.setText(str(self.chaos_factor)))
+        self.ui.show_chaos_factor_roll_result(colour)
 
     def get_background_image(self):
         """Returns the background image path for this view."""
@@ -408,8 +404,7 @@ class ThreadsList(QWidget):
             ).first()
             if result:
                 master_id = result.master_id
-            self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_id=master_id, prev_view='threads_list')
-            self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_id=master_id, prev_view='threads_list')
+            self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_id=master_id, prev_view='threads list')
 
     def receive_edited_row_data(self, data):
         data_action = data.get("action")

@@ -1,8 +1,7 @@
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView
-from PySide6.QtGui import QFont, QIcon, QColor, QPixmap
-from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
+from PySide6.QtGui import QFont, QIcon, QColor, QPixmap, QPainter, QRadialGradient
+from PySide6.QtCore import Qt, QSize, Signal, QTimer, QPropertyAnimation, QEasingCurve, Property
 from utils.utils_functions import align_dialog_to_button, get_dice_roll_result
-from utils.utils_classes import DiceResultDialog
 
 
 class GameDashboardUI(QWidget):
@@ -29,7 +28,7 @@ class GameDashboardUI(QWidget):
 
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
-        self.layout.setSpacing(10)
+        self.layout.setSpacing(0)
 
         # Title Label (Centered)
         self.title_label = QLabel(parent.story_name, self)
@@ -40,36 +39,44 @@ class GameDashboardUI(QWidget):
             padding: 0px;
             color: maroon;
             font-weight: bold;
-            font-style: italic;            
+            font-style: italic;  
+            padding-top: 47px;          
         """)
-        self.layout.addWidget(self.title_label, 0, 0, 1, 6, alignment=Qt.AlignCenter)
+        self.title_label.setContentsMargins(0, 0, 0, 0)
+        self.layout.addWidget(self.title_label, 0, 0, 2, 6, alignment=Qt.AlignCenter | Qt.AlignVCenter)
+
+        self.chaos_factor_frame = QFrame(self)
+        self.chaos_factor_button_layout = QHBoxLayout(self.chaos_factor_frame)
+        self.chaos_factor_button_layout.setContentsMargins(0, 0, 0, 25)
+        self.layout.addWidget(self.chaos_factor_frame, 2, 0, 1, 6, alignment=Qt.AlignCenter)
+        self.create_chaos_factor_counter(self.chaos_factor_frame)
 
         # Button Frame (Middle-Left placement)
         self.left_content_frame = QFrame(self)
         self.left_content_button_layout = QVBoxLayout(self.left_content_frame)
         self.left_content_button_layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.addWidget(self.left_content_frame, 1, 0, 2, 2, alignment=Qt.AlignCenter)
+        self.layout.addWidget(self.left_content_frame, 3, 0, 2, 2, alignment=Qt.AlignCenter)
         self.create_left_content_buttons()
 
         # Button Frame (Center)
         self.center_content_frame = QFrame(self)
         self.center_content_button_layout = QVBoxLayout(self.center_content_frame)
         self.center_content_button_layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.addWidget(self.center_content_frame, 1, 2, 2, 2, alignment=Qt.AlignCenter)
+        self.layout.addWidget(self.center_content_frame, 3, 2, 2, 2, alignment=Qt.AlignCenter)
         self.create_center_content_buttons()
 
         # Button Frame (Middle-Right placement)
         self.right_content_frame = QFrame(self)
         self.right_content_button_layout = QVBoxLayout(self.right_content_frame)
         self.right_content_button_layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.addWidget(self.right_content_frame, 1, 4, 2, 2, alignment=Qt.AlignCenter)
+        self.layout.addWidget(self.right_content_frame, 3, 4, 2, 2, alignment=Qt.AlignCenter)
         self.create_right_content_buttons()
 
         # Bottom Content Frame (for additional content)
         self.bottom_content_frame = QFrame(self)
         self.bottom_layout = QHBoxLayout(self.bottom_content_frame)
         self.bottom_layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.addWidget(self.bottom_content_frame, 3, 0, 1, 6)
+        self.layout.addWidget(self.bottom_content_frame, 5, 0, 4, 6)
         self.create_bottom_content()
 
 
@@ -83,7 +90,7 @@ class GameDashboardUI(QWidget):
         button_width, button_height = 250, 60
         button_font_size = 20
 
-        self.left_content_button_layout.setSpacing(10)
+        self.left_content_button_layout.setSpacing(15)
 
         for text, signal in signals:
             btn = QPushButton(text, self.left_content_frame)
@@ -94,15 +101,15 @@ class GameDashboardUI(QWidget):
             self.left_content_button_layout.addWidget(btn)
 
     def create_center_content_buttons(self):
-        button_width, button_height = 250, 60
+        button_width, button_height = 265, 60
         button_font_size = 20
 
-        self.center_content_button_layout.setSpacing(65)
-        self.create_chaos_factor_counter(self.center_content_frame)
+        self.center_content_button_layout.setSpacing(15)
 
         buttons = [
             ("Start a Scene", self.start_scene_dialog),
             ("End a Scene", self.end_scene_dialog),
+            ("Edit Chaos Factor", self.show_chaos_factor_buttons),
         ]
         for text, dialog in buttons:
             btn = QPushButton(text, self.center_content_frame)
@@ -122,7 +129,7 @@ class GameDashboardUI(QWidget):
         button_width, button_height = 250, 60
         button_font_size = 20
 
-        self.right_content_button_layout.setSpacing(10)
+        self.right_content_button_layout.setSpacing(15)
 
         for text, signal in signals:
             btn = QPushButton(text, self.right_content_frame)
@@ -153,29 +160,29 @@ class GameDashboardUI(QWidget):
 
     def create_chaos_factor_counter(self, parent_widget):
         # --- Counter Widget ---
-        counter_widget = QWidget(self.left_content_frame)
+        counter_widget = QWidget(self.chaos_factor_frame)
         counter_layout = QHBoxLayout(counter_widget)
         counter_layout.setContentsMargins(0, 0, 0, 0)
         counter_layout.setSpacing(5)
 
-        minus_btn = QPushButton("-", counter_widget)
-        minus_btn.setFixedSize(32, 32)
-        minus_btn.setFont(QFont("Arial", 18, QFont.Bold))
+        self.minus_btn = QPushButton("-", counter_widget)
+        self.minus_btn.setFixedSize(32, 32)
+        self.minus_btn.setFont(QFont("Arial", 18, QFont.Bold))
 
-        self.counter_label = QLabel(str(self.chaos_factor), counter_widget)
+        self.counter_label = HaloLabel(str(self.chaos_factor), counter_widget)
         self.counter_label.setAlignment(Qt.AlignCenter)
-        self.counter_label.setFixedWidth(40)
-        self.counter_label.setFont(QFont("Arial", 21, QFont.Bold))
-        self.counter_label.setStyleSheet("padding: 5px; color: maroon;")
+        self.counter_label.setFixedSize(200, 130)
+        self.counter_label.setFont(QFont("Arial", 23, QFont.Bold))
+        self.counter_label.setStyleSheet("padding: 8px; color: maroon;")
 
-        plus_btn = QPushButton("+", counter_widget)
-        plus_btn.setFixedSize(32, 32)
-        plus_btn.setFont(QFont("Arial", 18, QFont.Bold))
+        self.plus_btn = QPushButton("+", counter_widget)
+        self.plus_btn.setFixedSize(32, 32)
+        self.plus_btn.setFont(QFont("Arial", 18, QFont.Bold))
 
-        counter_layout.addWidget(minus_btn)
+        counter_layout.addWidget(self.minus_btn)
         counter_layout.addWidget(self.counter_label)
-        counter_layout.addWidget(plus_btn)
-        self.center_content_button_layout.addWidget(counter_widget, alignment=Qt.AlignCenter)
+        counter_layout.addWidget(self.plus_btn)
+        self.chaos_factor_button_layout.addWidget(counter_widget, alignment=Qt.AlignCenter)
 
         # Counter logic
         def update_counter(delta):
@@ -185,8 +192,10 @@ class GameDashboardUI(QWidget):
             self.chaos_factor_changed.emit(value)
             
 
-        minus_btn.clicked.connect(lambda: update_counter(-1))
-        plus_btn.clicked.connect(lambda: update_counter(1))
+        self.minus_btn.clicked.connect(lambda: update_counter(-1))
+        self.plus_btn.clicked.connect(lambda: update_counter(1))
+        self.minus_btn.setVisible(False)
+        self.plus_btn.setVisible(False)
 
     def start_scene_dialog(self):
         button_labels = ["Test the Expected Scene", "Go to Fate Chart / Oracle", "Cancel"]
@@ -222,17 +231,35 @@ class GameDashboardUI(QWidget):
     def end_scene_dialog(self):
         self.roll_for_chaos_factor.emit()
 
-    def show_chaos_factor_roll_result(self, dice_result, fate_result, colour):
-        """Shows the result of the chaos factor roll."""
-        dlg = DiceResultDialog(self, colour, dice_result, fate_result)
-        QTimer.singleShot(2500, dlg.accept) 
-        dlg.exec()
+    def show_chaos_factor_roll_result(self, colour):
+        QTimer.singleShot(3500, lambda: self.counter_label.set_halo(False))
+        QTimer.singleShot(1500, lambda: self.counter_label.set_halo(True, colour))
 
-        # Add white halo effect to the chaos factor label for 2 seconds after dialog closes
-        orig_style = self.counter_label.styleSheet()
-        halo_style = orig_style + "border: 2px solid white;"
-        self.counter_label.setStyleSheet(halo_style)
-        QTimer.singleShot(2000, lambda: self.counter_label.setStyleSheet(orig_style))
+    def show_chaos_factor_buttons(self):
+        self.minus_btn.setVisible(True)
+        self.plus_btn.setVisible(True)
+
+        # Cancel any previous timer
+        if hasattr(self, "_chaos_factor_hide_timer") and self._chaos_factor_hide_timer is not None:
+            self._chaos_factor_hide_timer.stop()
+
+        # Helper to hide buttons
+        def hide_buttons():
+            self.minus_btn.setVisible(False)
+            self.plus_btn.setVisible(False)
+
+        # Store the timer as an attribute so it can be restarted
+        self._chaos_factor_hide_timer = QTimer(self)
+        self._chaos_factor_hide_timer.setSingleShot(True)
+        self._chaos_factor_hide_timer.timeout.connect(hide_buttons)
+        self._chaos_factor_hide_timer.start(5000)  # 5 seconds
+
+        # Restart timer on button press
+        def restart_timer():
+            self._chaos_factor_hide_timer.start(5000)
+
+        self.minus_btn.clicked.connect(restart_timer)
+        self.plus_btn.clicked.connect(restart_timer)
 
 
 class OptionsWithCancelDialog(QDialog):
@@ -975,3 +1002,66 @@ class DuplicateListItemDialog(QDialog):
     def duplicate_entry_action(self, label):
         self.selected_label = label  # Store the label if you want to access it after exec()
         self.accept()
+
+
+class HaloLabel(QLabel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.halo_enabled = False
+        self._halo_colour = QColor(255, 255, 255, 180)  # Start as white
+        self._target_colour = QColor(255, 255, 255, 180)
+        self._animation = None
+
+    def set_halo(self, enabled=True, colour=None):
+        self.halo_enabled = enabled
+        if enabled and colour is not None:
+            # Animate from white to the target colour
+            if not isinstance(colour, QColor):
+                colour = QColor(colour)
+            self._target_colour = colour
+            self._start_colour_animation()
+        else:
+            self._halo_colour = QColor(255, 255, 255, 180)
+            self.update()
+        self.update()  # Trigger repaint
+
+    def _get_halo_colour(self):
+        return self._halo_colour
+
+    def _set_halo_colour(self, colour):
+        self._halo_colour = colour
+        self.update()
+
+    halo_colour = Property(QColor, _get_halo_colour, _set_halo_colour)
+
+    def _start_colour_animation(self):
+        if self._animation:
+            self._animation.stop()
+        self._animation = QPropertyAnimation(self, b"halo_colour")
+        self._animation.setDuration(2700)
+        self._animation.setStartValue(QColor(255, 255, 255, 180))
+        self._animation.setEndValue(self._target_colour)
+        self._animation.setEasingCurve(QEasingCurve.InOutQuad)
+        self._animation.start()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.halo_enabled:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+            center = self.rect().center()
+            rx = int(self.width() * 0.51)
+            ry = int(self.height() * 0.41)
+            inner_radius_ratio = 0.91
+
+            painter.save()
+            painter.translate(center)
+            painter.scale(rx / max(rx, ry), ry / max(rx, ry))
+            gradient = QRadialGradient(0, 0, max(rx, ry))
+            gradient.setColorAt(0.0, QColor(255, 255, 255, 0))
+            gradient.setColorAt(inner_radius_ratio, self._halo_colour)
+            gradient.setColorAt(1.0, QColor(255, 255, 255, 0))
+            painter.setBrush(gradient)
+            painter.setPen(Qt.NoPen)
+            painter.drawEllipse(-max(rx, ry), -max(rx, ry), 2 * max(rx, ry), 2 * max(rx, ry))
+            painter.restore()

@@ -38,7 +38,8 @@ class GalleryUI(QWidget):
         self.nav_btn_map = {}
         self.current_saved_image_path = None
         self.current_notes = None
-        if prev_view in ('game dashboard', 'characters list'):
+        print(f"prev_view: {prev_view}, first_nav_type: {first_nav_type}, first_nav_id: {first_nav_id}, search_with: {search_with}")
+        if prev_view in ('game dashboard', 'characters list', 'threads list'):
             self.modal = True
             self.last_search_options = ["Ascending", "Active", ["Characters", "Places", "Items"], None]
         else:
@@ -688,6 +689,7 @@ class SearchOptionsPopup(QWidget):
 
     def __init__(popup_self, parent, modal, existing_stories):
         super().__init__(parent, Qt.Popup)
+        print(f"modal: {modal}, existing_stories: {existing_stories}")
         popup_self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
         # popup_self.setAttribute(Qt.WA_TranslucentBackground, True)
         popup_self.setStyleSheet("""
