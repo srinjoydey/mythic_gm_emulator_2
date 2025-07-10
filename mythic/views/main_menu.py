@@ -3,7 +3,7 @@ from ui.main_menu_ui import MainMenuUI
 from models.db_config import session, engine
 from sqlalchemy import inspect
 from utils.static_data.tables_index import TABLES_INDEX
-from models.master_tables import StoriesIndex, Characters, Places, Items, Notes, Threads
+from models.master_tables import StoriesIndex, Characters, Places, Items, Notes, Threads, ThreadsNotes
 from models.story_tables import create_dynamic_model, CharactersList as CharactersListModel, ThreadsList as ThreadsListModel
 import os
 import glob
@@ -164,6 +164,7 @@ class ExistingStoryView(QWidget):
         session.query(Items).filter(Items.story_index == index).delete()
         session.query(Threads).filter(Threads.story_index == index).delete()
         session.query(Notes).filter(Notes.story_index == index).delete()
+        session.query(ThreadsNotes).filter(ThreadsNotes.story_index == index).delete()
         session.commit()
         session.close()
         # Remove all images for that story
@@ -220,10 +221,11 @@ class OraclesTablesView(QWidget):
             self.ui.render_d100_table(nav_item, table)
 
     def navigate_to_previous_view(self, prev_view):
+        from views.game_dashboard import GameDashboardView
+
         if prev_view == 'main menu':
             self.controller.show_view(MainMenu)
         elif prev_view == 'game dashboard':
-            from views.game_dashboard import GameDashboardView
             self.controller.show_view(GameDashboardView, story_index=self.story_index)
 
     def roll_on_double_clicked_table(self, table_name):
@@ -259,8 +261,7 @@ class OraclesTablesView(QWidget):
         else:
             fate_result = "Exceptional No"
             colour = "red"
-        # self.ui.show_fate_roll_result(row_idx, col_idx, dice_result, fate_result, colour)
-        self.ui.show_fate_roll_result(row_idx, col_idx, 66, fate_result, colour)
+        self.ui.show_fate_roll_result(row_idx, col_idx, dice_result, fate_result, colour)
 
     def navigate_to_random_events_table(self):
         """Navigates to the Random Events Table."""

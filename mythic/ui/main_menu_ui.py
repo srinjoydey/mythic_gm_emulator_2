@@ -559,7 +559,7 @@ class OraclesTablesUI(QWidget):
                 color: maroon;
             """)
         else:
-            close_button.setText("Story Dashboard")
+            close_button.setText("Main Menu")
             close_button.setFont(QFont("Arial", 14, QFont.Bold))
             close_button.setStyleSheet("padding: 10px; color: white;")
         close_button.clicked.connect(self.close_oracles_tables)
@@ -1031,7 +1031,7 @@ class OraclesTablesUI(QWidget):
 
             self._highlight_sequence_pos += 1
             if self._highlight_sequence_pos < len(self._highlight_sequence):
-                QTimer.singleShot(2000, do_highlight)
+                QTimer.singleShot(1200, do_highlight)
             # After the last one, leave the highlight
 
         # Schedule the first highlight with a timer to ensure consistent timing
