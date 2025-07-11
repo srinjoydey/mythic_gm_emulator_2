@@ -1,7 +1,8 @@
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QLineEdit
 from PySide6.QtCore import QTimer
-from ui.game_dashboard_ui import GameDashboardUI  # Assuming MainMenuUI is adapted for PySide6
+from ui.game_dashboard_ui import GameDashboardUI
 from models.master_tables import StoriesIndex, Characters, Places, Items, Notes, Threads, ThreadsNotes
+from views.gallery import GalleryView 
 from models.db_config import session
 from utils.static_data.tables_index import TESTING_THE_EXPECTED_SCENE
 from utils.utils_functions import get_dice_roll_result 
@@ -64,7 +65,6 @@ class GameDashboardView(QWidget):
         self.controller.show_view(ThreadsList, story_index=story_index)
 
     def navigate_to_gallery_modal(self, story_index):
-        from views.gallery import GalleryView     
         self.controller.show_view(GalleryView, story_index=story_index, prev_view='game dashboard')
 
     def navigate_to_main_menu(self):
@@ -136,6 +136,10 @@ class CharactersList(QWidget):
         self.story_index = story_index
         self.table_name = str(self.story_index) + "_characters_list"
 
+        self.characters_master_queryset = session.query(Characters).filter(Characters.story_index == self.story_index)
+        self.places_master_queryset = session.query(Places).filter(Places.story_index == self.story_index)
+        self.items_master_queryset = session.query(Items).filter(Items.story_index == self.story_index)
+
         self.characters_list_model = create_dynamic_model(CharactersListModel, self.table_name)
 
         existing_data_queryset = session.query(self.characters_list_model).all()
@@ -156,12 +160,8 @@ class CharactersList(QWidget):
         self.ui.close_table.connect(self.navigate_to_game_dashboard)
         self.ui.clear_all_rows.connect(self.clear_all_rows_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
-        
-    def send_matching_suggestions_for_row(self, current_typed_data_dict):
-        print(f"Current typed data in row {current_typed_data_dict['row']} is {current_typed_data_dict['data']}")
 
     def receive_clicked_row_data(self, data):
-        from views.gallery import GalleryView
         if data['name']:
             result = session.query(self.characters_list_model).filter(
                 self.characters_list_model.row == data['row_index'],
@@ -171,16 +171,50 @@ class CharactersList(QWidget):
             if result:
                 master_id = result.master_id
             self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id, prev_view='characters list')
+        
+    def send_matching_suggestions_for_row(self, current_typed_data_dict):
+        if current_typed_data_dict['data']:
+            matching_characters_queryset = self.characters_master_queryset.filter(
+                Characters.active==False, Characters.name.like(f"%{current_typed_data_dict['data']}%")
+            ).with_entities(Characters.id, Characters.name)
+            matching_places_queryset = self.places_master_queryset.filter(
+                Places.active==False, Places.name.like(f"%{current_typed_data_dict['data']}%")
+            ).with_entities(Places.id, Places.name)
+            matching_items_queryset = self.items_master_queryset.filter(Items.active == False).filter(
+                Items.name.like(f"%{current_typed_data_dict['data']}%")
+            ).with_entities(Items.id, Items.name)
+
+            suggestions = {}
+
+            for char_id, char_name in matching_characters_queryset:
+                suggestions[f"characters"] = {"id": char_id, "name": char_name}
+            for place_id, place_name in matching_places_queryset:
+                suggestions[f"places"] = {"id": place_id, "name": place_name}
+            for item_id, item_name in matching_items_queryset:
+                suggestions[f"items"] = {"id": item_id, "name": item_name}
+
+            all_names = [(v["id"], v['name']) for k, v in suggestions.items()]
+            if all_names:
+                all_names.sort(key=lambda x: (x[1].lower(), x[0]))  # Sort by name (case-insensitive), then id
+
+            # Find the QLineEdit for this row
+            row_index = current_typed_data_dict['row']
+            table_cell = None
+            for le in self.ui.scroll_widget.findChildren(QLineEdit):
+                if le.property("row_index") == row_index:
+                    table_cell = le
+                    break
+
+            if table_cell is not None:
+                self.ui.show_suggestions_popup(table_cell, all_names)
 
     def receive_edited_row_data(self, data):
-        from views.gallery import GalleryView
-
         master_tables_model = MODEL_MAP.get(data['type'])
         data_action = data.get("action")
 
         duplicates = session.query(master_tables_model).filter(
-            master_tables_model.name == data["name"],
-            master_tables_model.story_index == self.story_index
+            master_tables_model.story_index == self.story_index, 
+            master_tables_model.name == data["name"]
         ).all()
 
         if data_action == "delete":
@@ -372,6 +406,8 @@ class ThreadsList(QWidget):
         self.story_index = story_index
         self.table_name = str(self.story_index) + "_threads_list"
 
+        self.threads_master_queryset = session.query(Threads).filter(Threads.story_index == self.story_index)
+
         self.threads_list_model = create_dynamic_model(ThreadsListModel, self.table_name)
 
         existing_data_queryset = session.query(self.threads_list_model).all()
@@ -392,11 +428,7 @@ class ThreadsList(QWidget):
         self.ui.clear_all_rows.connect(self.clear_all_rows_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
-    def send_matching_suggestions_for_row(self, current_typed_data_dict):
-        print(f"Current typed data in row {current_typed_data_dict['row']} is {current_typed_data_dict['data']}")
-
     def receive_clicked_row_data(self, data):
-        from views.gallery import GalleryView
         if data['thread']:
             result = session.query(self.threads_list_model).filter(
                 self.threads_list_model.row == data['row_index'],
@@ -404,19 +436,89 @@ class ThreadsList(QWidget):
             ).first()
             if result:
                 master_id = result.master_id
-            self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_id=master_id, prev_view='threads list')
+            self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_id=master_id, prev_view='threads list', view='Threads')
+
+    def send_matching_suggestions_for_row(self, current_typed_data_dict):
+        from ui.game_dashboard_ui import ThreadLineEdit
+
+        if current_typed_data_dict['data']:
+            matching_threads_queryset = self.threads_master_queryset.filter(
+                Threads.active == False,
+                Threads.thread.like(f"%{current_typed_data_dict['data']}%"),
+                Threads.story_index == self.story_index
+            ).with_entities(Threads.id, Threads.thread)
+
+            suggestions = {}
+
+            for thread_id, thread_name in matching_threads_queryset:
+                suggestions[f"threads"] = {"id": thread_id, "name": thread_name}
+
+            all_names = [(v["id"], v['name']) for k, v in suggestions.items()]
+            if all_names:
+                all_names.sort(key=lambda x: (x[1].lower(), x[0]))  # Sort by name (case-insensitive), then id
+
+            # Find the QLineEdit for this row
+            row_index = current_typed_data_dict['row']
+            table_cell = None
+            for le in self.ui.scroll_widget.findChildren(ThreadLineEdit):
+                if le.property("row_index") == row_index:
+                    table_cell = le
+                    break
+
+            if table_cell is not None:
+                self.ui.show_suggestions_popup(table_cell, all_names)
 
     def receive_edited_row_data(self, data):
         data_action = data.get("action")
 
+        duplicates = session.query(Threads).filter(
+            Threads.story_index == self.story_index, 
+            Threads.thread == data["thread"]
+        ).all()
+
         if data_action == "delete":
             # Remove from story-specific list
             self.delete_row_data(data)
+
+        elif duplicates:
+            user_choice = self.ui.prompt_duplicate_action(data["thread"])
+
+            if user_choice == "Create New":
+                self.create_row_data(data)
+            elif user_choice == "Select Existing":
+                data['action'] = "select"
+                self.controller.show_view(
+                    GalleryView,
+                    story_index=self.story_index,
+                    first_nav_id=duplicates[0].id,
+                    prev_view='characters list',
+                    search_data=data, include_inactive=True, view='Threads'
+                )
+                self.controller.current_view.ui.list_action_nav_item.connect(
+                    lambda nav_type, nav_id: self.select_or_overwrite_existing_item(nav_id, data)
+                )
+
+            elif user_choice == "Overwrite Existing":
+                data['action'] = "overwrite"
+                self.controller.show_view(
+                    GalleryView,
+                    story_index=self.story_index,
+                    first_nav_id=duplicates[0].id,
+                    prev_view='characters list',
+                    search_data=data, include_inactive=True, view='Threads'
+                )
+                self.controller.current_view.ui.list_action_nav_item.connect(
+                    lambda nav_type, nav_id: self.select_or_overwrite_existing_item(nav_id, data)
+                )
+
+            elif user_choice == "Remove Entry":
+                self.controller.show_view(ThreadsList, story_index=self.story_index)
+
         else:
+            # No duplicates, create new entry
             self.create_row_data(data)
 
     def create_row_data(self, data):
-        from models.master_tables import Threads
         new_master_data = Threads(thread=data["thread"], story_index=self.story_index)
         session.add(new_master_data)
         session.commit()
@@ -459,6 +561,28 @@ class ThreadsList(QWidget):
 
         session.commit()
         return
+    
+    def select_or_overwrite_existing_item(self, existing_nav_id, new_record_data):
+        """Handles the selection or overwriting of an existing navigation item."""
+        list_row = new_record_data.get('row')
+        list_row_to_update = session.query(self.threads_list_model).filter(self.threads_list_model.row == list_row).first()
+        selected_master_data = session.query(Threads).filter(Threads.id == existing_nav_id).first()
+        related_notes = session.query(ThreadsNotes).filter(ThreadsNotes.thread_id == existing_nav_id).first()
+
+        list_row_to_update.thread = selected_master_data.thread
+        list_row_to_update.master_id = existing_nav_id
+
+        if new_record_data['action'] == "overwrite":
+            selected_master_data.thread = None
+
+        if selected_master_data.active is False:
+            selected_master_data.active = True
+        if related_notes.active is False:
+            related_notes.active = True
+
+        session.flush()
+        session.commit()
+        self.controller.show_view(ThreadsList, story_index=self.story_index)
     
     def roll_on_threads_list(self, row_index, section_label_text):
         """Rolls on the threads list based on the section label."""

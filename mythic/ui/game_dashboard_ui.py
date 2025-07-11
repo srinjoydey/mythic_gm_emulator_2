@@ -1,6 +1,6 @@
-from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox, QMessageBox, QDialog, QTableWidget, QTableWidgetItem, QHeaderView
+from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout, QFrame, QSizePolicy, QScrollArea, QLineEdit, QComboBox, QListWidget, QListWidgetItem, QDialog, QTableWidget, QTableWidgetItem, QHeaderView
 from PySide6.QtGui import QFont, QIcon, QColor, QPixmap, QPainter, QRadialGradient
-from PySide6.QtCore import Qt, QSize, Signal, QTimer, QPropertyAnimation, QEasingCurve, Property
+from PySide6.QtCore import Qt, QSize, Signal, QTimer, QPropertyAnimation, QEasingCurve, Property, QEvent, QObject
 from utils.utils_functions import align_dialog_to_button, get_dice_roll_result
 
 
@@ -587,6 +587,21 @@ class CharactersThreadsTablesUI(QWidget):
                     scroll_layout.addWidget(dropdown_cell, row_index, 16, 1, 3)
 
                 elif self.table_label == "threads":
+                    table_cell = ThreadLineEdit(scroll_widget)
+                    table_cell.setStyleSheet(f"""
+                        border-top: 1px solid black;
+                        border-bottom: {border_bottom};
+                        border-right: 1px solid black;
+                        border-left: 1px solid black;
+                        padding: 10px;
+                        color: black;
+                        font-size: 16px;
+                        background-color: white;
+                    """)
+                    table_cell.setReadOnly(True)
+                    table_cell.setProperty("row_index", row_index)
+                    table_cell.setProperty("original_stylesheet", table_cell.styleSheet())
+
                     if row_index in rows_to_be_updated:
                         table_cell.setText(self.existing_data[row_index]["thread"])
 
@@ -595,7 +610,7 @@ class CharactersThreadsTablesUI(QWidget):
                     table_cell.mousePressEvent = self.make_table_cell_mouse_press_handler(table_cell)
                     table_cell.mouseDoubleClickEvent = self.make_table_cell_mouse_double_click_handler(table_cell)
                     table_cell.textEdited.connect(self.debounced_emit_search_for_suggestions)
-                    table_cell.editingFinished.connect(self.edited_row_data)
+                    table_cell.enter_or_escape_pressed.connect(self.edited_row_data)
 
                 clear_out_row_button.clicked.connect(lambda row=row_index: self.emit_deleted_row_data(row))
                 scroll_layout.addWidget(clear_out_row_button, row_index, 6, 1, 1)
@@ -609,6 +624,11 @@ class CharactersThreadsTablesUI(QWidget):
         table_container_layout.addWidget(scroll_area)
         self.layout.addWidget(table_container)
         self.setLayout(self.layout)
+
+        # --- Hide any FocusLineEdit cells from ThreadsList if present (after UI is built) ---
+        if self.table_label == "threads":
+            for le in self.scroll_widget.findChildren(FocusLineEdit):
+                le.setVisible(False)
 
 
     def make_table_cell_mouse_press_handler(self, table_cell, dropdown_cell=None):
@@ -721,7 +741,87 @@ class CharactersThreadsTablesUI(QWidget):
                     "data": s.text()
                 })
             )
-        self.debounce_timers[sender].start(400)
+        self.debounce_timers[sender].start(1200)
+
+    def show_suggestions_popup(self, table_cell, suggestions):
+            # Remove old popup if any
+            if hasattr(self, "_suggestions_popup") and self._suggestions_popup is not None:
+                try:
+                    self._suggestions_popup.close()
+                except RuntimeError:
+                    pass
+                self._suggestions_popup = None
+
+            if not suggestions:
+                return
+
+            popup = QListWidget(self)
+            popup.setAttribute(Qt.WA_DeleteOnClose)
+            popup.setWindowFlags(Qt.Popup)
+            popup.setFocusPolicy(Qt.NoFocus)
+            popup.setStyleSheet("background: #fffbe6; color: #800000; font-size: 16px; border: 1px solid #800000;")
+            for id, name in suggestions:
+                item = QListWidgetItem(name)
+                popup.addItem(item)
+
+            pos = table_cell.mapToGlobal(table_cell.rect().bottomLeft())
+            popup.move(pos)
+            popup.setFixedWidth(table_cell.width())
+            popup.show()
+            self._suggestions_popup = popup
+
+            # Ensure _suggestions_popup is set to None when popup is destroyed
+            popup.destroyed.connect(lambda: setattr(self, "_suggestions_popup", None))
+
+            def on_item_clicked(item):
+                table_cell.setText(item.text())
+                popup.close()
+                # self._suggestions_popup = None  # Not needed, handled by destroyed signal
+
+            popup.itemClicked.connect(on_item_clicked)
+
+            class PopupEventFilter(QObject):
+                def __init__(self, popup, table_cell):
+                    super().__init__(popup)
+                    self.table_cell = table_cell
+
+                def eventFilter(self, obj, event):
+                    if event.type() == QEvent.KeyPress:
+                        cursor_pos = self.table_cell.cursorPosition()
+                        # If Escape or Enter, close popup and return focus/cursor
+                        if event.key() == Qt.Key_Escape or event.key() in (Qt.Key_Return, Qt.Key_Enter):
+                            popup.close()
+                            self.table_cell.setFocus()
+                            self.table_cell.setCursorPosition(cursor_pos)
+                            return True
+                        # If it's a printable character or Backspace, close popup, focus cell, and type
+                        if (event.text() and event.text().isprintable()) or event.key() == Qt.Key_Backspace:
+                            popup.close()
+                            self.table_cell.setFocus()
+                            text = self.table_cell.text()
+                            if event.key() == Qt.Key_Backspace:
+                                # Remove character before cursor if possible
+                                if cursor_pos > 0:
+                                    new_text = text[:cursor_pos-1] + text[cursor_pos:]
+                                    self.table_cell.setText(new_text)
+                                    self.table_cell.setCursorPosition(cursor_pos - 1)
+                                else:
+                                    # Nothing to delete, just keep cursor at start
+                                    self.table_cell.setCursorPosition(0)
+                            else:
+                                new_text = text[:cursor_pos] + event.text() + text[cursor_pos:]
+                                self.table_cell.setText(new_text)
+                                self.table_cell.setCursorPosition(cursor_pos + 1)
+                            return True
+                    if event.type() == QEvent.MouseButtonPress:
+                        if not popup.rect().contains(event.pos()):
+                            popup.close()
+                            self.table_cell.setFocus()
+                            return True
+                    return False
+
+            filter = PopupEventFilter(popup, table_cell)
+            popup.installEventFilter(filter)
 
     def finish_edit_handler(self, table_cell, dropdown_cell=None):
         def handler():
@@ -930,7 +1030,7 @@ class CharactersThreadsTablesUI(QWidget):
             highlight_row_in_section(section_label_str, self._highlight_sequence[self._highlight_sequence_pos])
             self._highlight_sequence_pos += 1
             if self._highlight_sequence_pos < len(self._highlight_sequence):
-                QTimer.singleShot(2000, highlight_next)
+                QTimer.singleShot(1200, highlight_next)
             # Keep the last highlight (do not clear after last)
 
         highlight_next()
@@ -942,6 +1042,13 @@ class CharactersThreadsTablesUI(QWidget):
         result = dlg.exec()
         if result == QDialog.Accepted and dlg.selected_label == "Clear All Rows":
             self.clear_all_rows.emit()
+
+class ThreadLineEdit(QLineEdit):
+    enter_or_escape_pressed = Signal()
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Escape):
+            self.enter_or_escape_pressed.emit()
+        super().keyPressEvent(event)
     
 class DuplicateListItemDialog(QDialog):
     def __init__(self, parent=None):
