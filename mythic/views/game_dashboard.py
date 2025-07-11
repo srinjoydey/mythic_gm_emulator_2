@@ -72,9 +72,9 @@ class GameDashboardView(QWidget):
         self.controller.show_view(MainMenu)
 
     def handle_start_scene_action(self, action):
-        if action == "expected_scene_test":
+        if action == "Test the Expected Scene":
             self.ui.test_expected_scene(TESTING_THE_EXPECTED_SCENE)
-        elif action == "oracles_tables":
+        elif action == "Go to Fate Chart / Oracle":
             self.open_oracle_table_in_modal()
 
     def resolve_start_scene_action(self, action):

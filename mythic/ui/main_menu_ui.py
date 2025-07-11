@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, Signal, QTimer, QSize, Slot
 from views.game_dashboard import GameDashboardView
 import warnings
 from utils.utils_functions import scroll_to_widget
-from utils.utils_classes import DiceResultDialog
+from utils.utils_classes import OptionsWithCancelDialog, DiceResultDialog
 
 
 # To suppress RuntimeWarning that arises when disconnecting signals that may not have been connected in ln 350
@@ -494,7 +494,12 @@ class ExistingStoryUI(QWidget):
             pass
 
     def delete_confirm_prompt(self, story_index):
-        pass
+        """Prompts the user to confirm clearing all data for a particular story."""
+        button_labels = ["Clear All Story Related Data", "Cancel"]
+        dlg = OptionsWithCancelDialog(self, button_labels)
+        result = dlg.exec()
+        if result == QDialog.Accepted and dlg.selected_label == "Clear All Story Related Data":
+            self.delete_btn_clicked.emit()
         
 
 class OraclesTablesUI(QWidget):
