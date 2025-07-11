@@ -14,8 +14,13 @@ class GalleryView(QWidget):
         super().__init__(parent)
         self.controller = controller
         self.story_index = story_index
+        self.first_nav_type = first_nav_type
+        self.first_nav_id = first_nav_id
         existing_stories = {}
         self.multi_story_mode = self.story_index is None
+        self.prev_view = prev_view
+        self.search_data = search_data
+        self.include_inactive = include_inactive
         self.view = view
 
         if self.story_index is None:
@@ -32,7 +37,7 @@ class GalleryView(QWidget):
                 self.threads_base_queryset = session.query(Threads).with_entities(Threads.story_index, Threads.id, Threads.thread)
                 self.threads_queryset = self.threads_base_queryset
 
-            if not include_inactive: # Only toggle active/inactive on the first call
+            if not self.include_inactive: # Only toggle active/inactive on the first call
                 self.toggle_active_inactive("Active")
 
             self.get_list_from_queryset(multi_story_mode=self.multi_story_mode)
@@ -49,19 +54,20 @@ class GalleryView(QWidget):
                 self.threads_base_queryset = session.query(Threads).with_entities(Threads.id, Threads.thread).filter(Threads.story_index == self.story_index)
                 self.threads_queryset = self.threads_base_queryset
 
-            if not include_inactive: # Only toggle active/inactive on the first call
+            if not self.include_inactive: # Only toggle active/inactive on the first call
                 self.toggle_active_inactive("Active")
 
             self.get_list_from_queryset(multi_story_mode=self.multi_story_mode)
 
         if view == "Characters":
             self.nav_bar_list = self.characters_list + self.places_list + self.items_list
-            self.ui = GalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_type=first_nav_type, first_nav_id=first_nav_id, prev_view=prev_view, search_with=search_data)
+            self.ui = GalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_type=self.first_nav_type, first_nav_id=self.first_nav_id, prev_view=self.prev_view, search_with=self.search_data)
         else:
             self.nav_bar_list = self.threads_list
-            self.ui = ThreadsGalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_id=first_nav_id, prev_view=prev_view, search_with=search_data)
+            self.ui = ThreadsGalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_id=self.first_nav_id, prev_view=self.prev_view, search_with=self.search_data)
 
         # Attach UI with navigation logic
+        self.ui.label_clicked.connect(self.change_the_gallery_view)
         self.ui.search_options_changed.connect(self.search_nav_items)
         self.ui.details_data_ready.connect(self.post_edited_nav_items_data)
         self.ui.close_gallery.connect(self.navigate_to_previous_view)
@@ -184,6 +190,14 @@ class GalleryView(QWidget):
                     data["notes"] = related_notes.notes
                 return data
             return {}
+        
+    def change_the_gallery_view(self):
+        if self.view == "Characters":
+            self.controller.show_view(GalleryView
+            , story_index=self.story_index, first_nav_type=self.first_nav_type, first_nav_id=self.first_nav_id, prev_view=self.prev_view, search_data=self.search_data, view="Threads")
+        else:
+            self.controller.show_view(GalleryView
+            , story_index=self.story_index, first_nav_id=self.first_nav_id, prev_view=self.prev_view, search_data=self.search_data, view="Characters")
 
     def search_nav_items(self, sort, show, categories, stories, search_data=None):
         sort_position = None

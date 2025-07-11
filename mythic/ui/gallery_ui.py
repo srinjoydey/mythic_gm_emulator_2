@@ -13,6 +13,7 @@ ITEMS_FIELDS = ['name', 'material', 'rarity', 'image_path', 'notes']
 
 class GalleryUI(QWidget):
     """A modal dialog with a left-hand vertical navigation pane and a close button row."""
+    label_clicked = Signal()
     search_options_changed = Signal(str, str, list, object, str)
     details_data_ready = Signal(dict)
     notes_edited = Signal(str)
@@ -93,7 +94,7 @@ class GalleryUI(QWidget):
         self.search_box.textEdited.connect(self.emit_current_search_options)
 
         if not search_with:
-            self.title_or_button_label = QLabel("Gallery : Characters", close_row_container)
+            self.title_or_button_label = ClickableLabel("Gallery : Characters", close_row_container)
             self.title_or_button_label.setFont(QFont("Arial", 28))
             self.title_or_button_label.setStyleSheet("""
                 background-color: transparent;
@@ -102,6 +103,7 @@ class GalleryUI(QWidget):
                 font-weight: bold;
                 font-style: italic;
             """)
+            self.title_or_button_label.clicked.connect(self.label_clicked)
         else:
             self.title_or_button_label = QPushButton(search_with['action'].capitalize(), close_row_container)
             self.title_or_button_label.setFixedSize(240, 38)
@@ -692,6 +694,7 @@ class GalleryUI(QWidget):
 
 class ThreadsGalleryUI(QWidget):
     """A modal dialog with a left-hand vertical navigation pane and a close button row."""
+    label_clicked = Signal()
     search_options_changed = Signal(str, str, object, object, str)
     details_data_ready = Signal(dict)
     notes_edited = Signal(str)
@@ -754,7 +757,7 @@ class ThreadsGalleryUI(QWidget):
             border: 1px solid #555;
         """)
         if self.modal:
-            self.search_box.setFixedSize(281, 41)
+            self.search_box.setFixedSize(571, 41)
         else:
             self.search_box.setFixedSize(617, 42)
 
@@ -771,7 +774,7 @@ class ThreadsGalleryUI(QWidget):
         self.search_box.textEdited.connect(self.emit_current_search_options)
 
         if not search_with:
-            self.title_or_button_label = QLabel("Gallery : Threads", close_row_container)
+            self.title_or_button_label = ClickableLabel("Gallery : Threads", close_row_container)
             self.title_or_button_label.setFont(QFont("Arial", 28))
             self.title_or_button_label.setStyleSheet("""
                 background-color: transparent;
@@ -780,6 +783,7 @@ class ThreadsGalleryUI(QWidget):
                 font-weight: bold;
                 font-style: italic;
             """)
+            self.title_or_button_label.clicked.connect(self.label_clicked)
         else:
             self.title_or_button_label = QPushButton(search_with['action'].capitalize(), close_row_container)
             self.title_or_button_label.setFixedSize(240, 38)
@@ -1002,7 +1006,7 @@ class ThreadsGalleryUI(QWidget):
         self.update_content_for_nav(nav_id)
 
     def open_search_menu(self):
-        sort, show, categories, stories = self.last_search_options
+        sort, show, stories = self.last_search_options
         # Set radio buttons
         if sort == "Ascending":
             self.popup.radio1_a.setChecked(True)
@@ -1252,6 +1256,15 @@ class ThreadsGalleryUI(QWidget):
         self.nav_layout.addStretch()
         
 
+class ClickableLabel(QLabel):
+    clicked = Signal()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
+
+
 class SearchOptionsPopup(QWidget):
     values_changed = Signal(str, str, object, object)
 
@@ -1373,9 +1386,15 @@ class SearchOptionsPopup(QWidget):
                             story_row.addWidget(cb)
                             popup_self.story_checkboxes.append((story_index, cb))
                     layout.addLayout(story_row)
-            popup_self.setFixedSize(480, 510)
+            if popup_self.view == "Characters":
+                popup_self.setFixedSize(480, 510)
+            else:
+                popup_self.setFixedSize(480, 510)
         else:
-            popup_self.setFixedSize(400, 335)
+            if popup_self.view == "Characters":
+                popup_self.setFixedSize(400, 335)
+            else:
+                popup_self.setFixedSize(400, 335)
 
         # Connect signals to emit current values
         popup_self.radio1_a.toggled.connect(popup_self.emit_current_values)

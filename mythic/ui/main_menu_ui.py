@@ -306,7 +306,7 @@ class ExistingStoryUI(QWidget):
         self.select_buttons = []
         for index_data, story_data in self.existing_stories_data.items():
             self.select_buttons.append((index_data, story_data['story_name'], story_data['description']))
-        select_button_width, select_button_height = 320, 65
+        select_button_width, select_button_height = 335, 65
         select_button_font_size = 18
 
         for index_value, story_title, story_description in self.select_buttons:
@@ -404,7 +404,7 @@ class ExistingStoryUI(QWidget):
 
     @Slot()
     def on_delete_clicked(self):
-        self.delete_btn_clicked.emit(self.selected_button_story_index)
+        self.delete_confirm_prompt(self.selected_button_story_index)
 
     def prompt_edit_story(self, story_index):
         # Get the current story data
@@ -492,6 +492,10 @@ class ExistingStoryUI(QWidget):
         if dialog.exec():
             # Optionally refresh your UI here
             pass
+
+    def delete_confirm_prompt(self, story_index):
+        pass
+        
 
 class OraclesTablesUI(QWidget):
     """A fullscreen view with a left-hand vertical navigation pane and a close button row."""
