@@ -180,7 +180,10 @@ class ExistingStoryView(QWidget):
         characters_list_model.__table__.drop(engine)
         threads_list_model.__table__.drop(engine)
 
-        self.controller.show_view(ExistingStoryView, all_stories=self.all_stories)
+        if not self.all_stories or all(story.name is None for story in self.all_stories):
+            self.controller.show_view(MainMenu)
+        else:
+            self.controller.show_view(ExistingStoryView, all_stories=self.all_stories)
 
     def get_background_image(self):
         """Returns the background image path for this view."""

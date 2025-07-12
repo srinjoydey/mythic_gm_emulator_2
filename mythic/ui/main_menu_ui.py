@@ -499,7 +499,7 @@ class ExistingStoryUI(QWidget):
         dlg = OptionsWithCancelDialog(self, button_labels)
         result = dlg.exec()
         if result == QDialog.Accepted and dlg.selected_label == "Clear All Story Related Data":
-            self.delete_btn_clicked.emit()
+            self.delete_btn_clicked.emit(story_index)
         
 
 class OraclesTablesUI(QWidget):

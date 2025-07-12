@@ -201,21 +201,22 @@ class GalleryView(QWidget):
 
     def search_nav_items(self, sort, show, categories, stories, search_data=None):
         sort_position = None
-        # only have selected categories
+
         if self.view == "Characters":
+            # Always reset to base querysets
+            self.characters_queryset = self.characters_base_queryset
+            self.places_queryset = self.places_base_queryset
+            self.items_queryset = self.items_base_queryset
+
+            # Only have selected categories
             if 'Characters' not in categories:
                 self.characters_queryset = None
-            else:
-                self.characters_queryset = self.characters_base_queryset
             if 'Places' not in categories:
                 self.places_queryset = None
-            else:
-                self.places_queryset = self.places_base_queryset
             if 'Items' not in categories:
                 self.items_queryset = None
-            else:
-                self.items_queryset = self.items_base_queryset
-            # if the gallery view can host multiple stories, filter by selected stories
+
+            # Multi-story filter
             if self.multi_story_mode:
                 if self.characters_queryset:
                     self.characters_queryset = self.characters_queryset.filter(Characters.story_index.in_(stories))
@@ -223,74 +224,92 @@ class GalleryView(QWidget):
                     self.places_queryset = self.places_queryset.filter(Places.story_index.in_(stories))
                 if self.items_queryset:
                     self.items_queryset = self.items_queryset.filter(Items.story_index.in_(stories))
-
                 sort_position = 3
             else:
                 sort_position = 2
 
+            # Search filter
             if search_data:
-                # If search text is present, filter the querysets based on the search text
                 if self.characters_queryset:
                     self.characters_queryset = self.characters_queryset.filter(func.lower(Characters.name).like(f"%{search_data.lower()}%"))
                 if self.places_queryset:
                     self.places_queryset = self.places_queryset.filter(func.lower(Places.name).like(f"%{search_data.lower()}%"))
                 if self.items_queryset:
                     self.items_queryset = self.items_queryset.filter(func.lower(Items.name).like(f"%{search_data.lower()}%"))
-            
-            # filter querysets based on whether active or inactive
+
+            # Active/Inactive filter
             if show == "Inactive":
                 self.toggle_active_inactive("Inactive")
             elif show == "Active":
                 self.toggle_active_inactive("Active")
 
+            # Rebuild nav bar list
             if self.multi_story_mode:
                 self.get_list_from_queryset(multi_story_mode=True)
             else:
                 self.get_list_from_queryset(multi_story_mode=False)
-            # Rebuild the nav_bar_list
             self.nav_bar_list = self.characters_list + self.places_list + self.items_list
-        
+
+            # Sort
+            if sort == "Descending":
+                self.sort_nav_items(sort_position, "Descending")
+            elif sort == "Ascending":
+                self.sort_nav_items(sort_position, "Ascending")
+            # Emit the updated nav bar list
+            self.ui.update_nav_bar(self.nav_bar_list)
+
         else:
-            # if the gallery view can host multiple stories, filter by selected stories
-            if self.multi_story_mode and self.threads_queryset:
+            # Always reset to base queryset
+            self.threads_queryset = self.threads_base_queryset
+
+            # Multi-story filter
+            if self.multi_story_mode:
                 self.threads_queryset = self.threads_queryset.filter(Threads.story_index.in_(stories))
                 sort_position = 2
             else:
                 sort_position = 1
 
+            # Search filter
             if search_data:
-                # If search text is present, filter the queryset based on the search text
                 if self.threads_queryset:
                     self.threads_queryset = self.threads_queryset.filter(func.lower(Threads.thread).like(f"%{search_data.lower()}%"))
 
-            # filter querysets based on whether active or inactive
+            # Active/Inactive filter
             if show == "Inactive":
                 self.toggle_active_inactive("Inactive")
             elif show == "Active":
                 self.toggle_active_inactive("Active")
 
+            # Rebuild nav bar list
             if self.multi_story_mode:
                 self.get_list_from_queryset(multi_story_mode=True)
             else:
                 self.get_list_from_queryset(multi_story_mode=False)
-            # Rebuild the nav_bar_list
             self.nav_bar_list = self.threads_list
 
-        # Sort
-        if sort == "Descending":
-            self.sort_nav_items(sort_position, "Descending")
-        elif sort == "Ascending":
-            self.sort_nav_items(sort_position, "Ascending")
-        self.ui.update_nav_bar(self.nav_bar_list)
+            # Sort
+            if sort == "Descending":
+                self.sort_nav_items(sort_position, "Descending")
+            elif sort == "Ascending":
+                self.sort_nav_items(sort_position, "Ascending")
+
+            self.ui.update_nav_bar(self.nav_bar_list)
 
     def save_uploaded_image(self, image_path):
         """Saves the uploaded image path to the database."""
-        if self.ui.current_nav_type and self.ui.current_nav_id:
-            model = MODEL_MAP[self.ui.current_nav_type]
-            data = session.query(model).filter(model.id == self.ui.current_nav_id).first()
-            if data:
-                data.image_path = image_path
-                session.commit()
+        if self.view == "Characters":
+            if self.ui.current_nav_type and self.ui.current_nav_id:
+                model = MODEL_MAP[self.ui.current_nav_type]
+                data = session.query(model).filter(model.id == self.ui.current_nav_id).first()
+                if data:
+                    data.image_path = image_path
+                    session.commit()
+        else:
+            if self.ui.current_nav_id:
+                data = session.query(Threads).filter(Threads.id == self.ui.current_nav_id).first()
+                if data:
+                    data.image_path = image_path
+                    session.commit()
 
     def get_background_image(self):
         """Returns the background image path for this view."""

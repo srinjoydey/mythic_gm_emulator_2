@@ -403,8 +403,10 @@ class GalleryUI(QWidget):
         self.popup.show()
         self.popup.setFocus()
 
-    def selected_search_options(self, radio1_val, radio2_val, checkboxes, story_checkboxes):
+    def selected_search_options(self, *args):
+        radio1_val, radio2_val, checkboxes, story_checkboxes = args
         self.last_search_options = (radio1_val, radio2_val, checkboxes, story_checkboxes)
+        self.emit_current_search_options()
 
     def emit_current_search_options(self, *args):
         # Always emit the current filter state (including search text)
@@ -850,6 +852,7 @@ class ThreadsGalleryUI(QWidget):
             btn.clicked.connect(lambda checked, b=btn, id=nav_item_id: self.handle_nav_click(b, id))
             self.nav_layout.addWidget(btn)
             self.nav_buttons.append(btn)
+            self.nav_id_to_label[nav_item_id] = nav_item_name
             self.nav_btn_map[nav_item_id] = btn
 
         self.nav_layout.addStretch()
@@ -1018,6 +1021,10 @@ class ThreadsGalleryUI(QWidget):
             self.popup.radio2_b.setChecked(True)
         else:
             self.popup.radio2_c.setChecked(True)
+        # Set story checkboxes if present
+        if hasattr(self.popup, "story_checkboxes") and stories is not None:
+            for story_index, cb in self.popup.story_checkboxes:
+                cb.setChecked(story_index in stories)
                 
         self.popup.adjustSize()
         line_edit_rect = self.search_box.rect()
@@ -1028,8 +1035,11 @@ class ThreadsGalleryUI(QWidget):
         self.popup.show()
         self.popup.setFocus()
 
-    def selected_search_options(self, radio1_val, radio2_val, story_checkboxes):
+    def selected_search_options(self, *args):
+        radio1_val, radio2_val, _, story_checkboxes = args
         self.last_search_options = (radio1_val, radio2_val, story_checkboxes)
+            
+        self.emit_current_search_options()
 
     def emit_current_search_options(self, *args):
         # Always emit the current filter state (including search text)
@@ -1062,9 +1072,9 @@ class ThreadsGalleryUI(QWidget):
         """Load, save, and display the image, scaled to fit the label."""
         nav_type = self.current_nav_type
         nav_id = self.current_nav_id
-        label = self.nav_id_to_label.get((nav_type, nav_id), "image")
+        label = self.nav_id_to_label.get(nav_id, "image")
         ext = os.path.splitext(image_path)[1] or ".png"
-        save_dir = os.path.join("visuals", nav_type)
+        save_dir = os.path.join("visuals", "threads")
         os.makedirs(save_dir, exist_ok=True)
         filename = f"{nav_id}_{label}{ext}"
         filename = "".join(c if c.isalnum() or c in "._-" else "_" for c in filename)
@@ -1338,17 +1348,17 @@ class SearchOptionsPopup(QWidget):
             layout.addWidget(label_row5)
 
             # 6th row: 3 checkboxes (all checked by default)
-            checkbox_row = QHBoxLayout()
+            popup_self.checkbox_row = QHBoxLayout()
             popup_self.checkbox1 = QCheckBox("Characters", popup_self)
             popup_self.checkbox2 = QCheckBox("Places", popup_self)
             popup_self.checkbox3 = QCheckBox("Items", popup_self)
             popup_self.checkbox1.setChecked(True)
             popup_self.checkbox2.setChecked(True)
             popup_self.checkbox3.setChecked(True)
-            checkbox_row.addWidget(popup_self.checkbox1)
-            checkbox_row.addWidget(popup_self.checkbox2)
-            checkbox_row.addWidget(popup_self.checkbox3)
-            layout.addLayout(checkbox_row)
+            popup_self.checkbox_row.addWidget(popup_self.checkbox1)
+            popup_self.checkbox_row.addWidget(popup_self.checkbox2)
+            popup_self.checkbox_row.addWidget(popup_self.checkbox3)
+            layout.addLayout(popup_self.checkbox_row)
 
         if not modal:
             if existing_stories:
@@ -1360,21 +1370,29 @@ class SearchOptionsPopup(QWidget):
                 if len(story_indices) > 3:
                     # First row: first 3 stories
                     story_row1 = QHBoxLayout()
+                    any_story1 = False
                     for story_index, story_name in story_indices[:3]:
                         if story_name:
                             cb = QCheckBox(story_name, popup_self)
                             cb.setChecked(True)
                             story_row1.addWidget(cb)
                             popup_self.story_checkboxes.append((story_index, cb))
+                            any_story1 = True
+                    if not any_story1:
+                        label_row7.setVisible(False)
                     layout.addLayout(story_row1)
                     # Second row: the rest
                     story_row2 = QHBoxLayout()
+                    any_story2 = False
                     for story_index, story_name in story_indices[3:]:
                         if story_name:
                             cb = QCheckBox(story_name, popup_self)
                             cb.setChecked(True)
                             story_row2.addWidget(cb)
                             popup_self.story_checkboxes.append((story_index, cb))
+                            any_story2 = True
+                    if not any_story1 and not any_story2:
+                        label_row7.setVisible(False)
                     layout.addLayout(story_row2)
                 else:
                     # All in one row
@@ -1389,12 +1407,13 @@ class SearchOptionsPopup(QWidget):
             if popup_self.view == "Characters":
                 popup_self.setFixedSize(480, 510)
             else:
-                popup_self.setFixedSize(480, 510)
+                popup_self.setFixedSize(480, 350)
         else:
+            # Modal popup size
             if popup_self.view == "Characters":
                 popup_self.setFixedSize(400, 335)
             else:
-                popup_self.setFixedSize(400, 335)
+                popup_self.setFixedSize(400, 290)
 
         # Connect signals to emit current values
         popup_self.radio1_a.toggled.connect(popup_self.emit_current_values)
