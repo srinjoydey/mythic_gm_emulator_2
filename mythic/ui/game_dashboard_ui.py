@@ -346,6 +346,7 @@ class FocusLineEdit(QLineEdit):
 
 class CharactersThreadsTablesUI(QWidget):
     row_data_edited = Signal(dict)
+    request_close_table = Signal()
     close_table = Signal()
     clear_all_rows = Signal()
     search_for_suggestions = Signal(dict)
@@ -395,8 +396,9 @@ class CharactersThreadsTablesUI(QWidget):
             color: maroon;
         """)
 
-        close_button.clicked.connect(self.close_table)
-        # clear_all_button.clicked.connect(self.clear_all_rows)
+        close_button.clicked.disconnect()
+        close_button.clicked.connect(self.emit_edited_data_and_request_close)
+
         clear_all_button.clicked.connect(self.clear_all_rows_confirmation)
         close_row_layout = QHBoxLayout(close_row_container)
         close_row_layout.addWidget(clear_all_button, alignment=Qt.AlignLeft)
@@ -522,20 +524,20 @@ class CharactersThreadsTablesUI(QWidget):
                     scroll_layout.addWidget(dropdown_cell, row_index, 16, 1, 3)
 
                 elif self.table_label == "threads":
-                    table_cell = ThreadLineEdit(scroll_widget)
-                    table_cell.setStyleSheet(f"""
-                        border-top: 1px solid black;
-                        border-bottom: {border_bottom};
-                        border-right: 1px solid black;
-                        border-left: 1px solid black;
-                        padding: 10px;
-                        color: black;
-                        font-size: 16px;
-                        background-color: white;
-                    """)
-                    table_cell.setReadOnly(True)
-                    table_cell.setProperty("row_index", row_index)
-                    table_cell.setProperty("original_stylesheet", table_cell.styleSheet())
+                    # table_cell = ThreadLineEdit(scroll_widget)
+                    # table_cell.setStyleSheet(f"""
+                    #     border-top: 1px solid black;
+                    #     border-bottom: {border_bottom};
+                    #     border-right: 1px solid black;
+                    #     border-left: 1px solid black;
+                    #     padding: 10px;
+                    #     color: black;
+                    #     font-size: 16px;
+                    #     background-color: white;
+                    # """)
+                    # table_cell.setReadOnly(True)
+                    # table_cell.setProperty("row_index", row_index)
+                    # table_cell.setProperty("original_stylesheet", table_cell.styleSheet())
 
                     if row_index in rows_to_be_updated:
                         table_cell.setText(self.existing_data[row_index]["thread"])
@@ -545,7 +547,7 @@ class CharactersThreadsTablesUI(QWidget):
                     table_cell.mousePressEvent = self.make_table_cell_mouse_press_handler(table_cell)
                     table_cell.mouseDoubleClickEvent = self.make_table_cell_mouse_double_click_handler(table_cell)
                     table_cell.textEdited.connect(self.debounced_emit_search_for_suggestions)
-                    table_cell.enter_or_escape_pressed.connect(self.edited_row_data)
+                    # table_cell.enter_or_escape_pressed.connect(self.edited_row_data)
 
                 clear_out_row_button.clicked.connect(lambda row=row_index: self.emit_deleted_row_data(row))
                 scroll_layout.addWidget(clear_out_row_button, row_index, 6, 1, 1)
@@ -561,9 +563,9 @@ class CharactersThreadsTablesUI(QWidget):
         self.setLayout(self.layout)
 
         # --- Hide any FocusLineEdit cells from ThreadsList if present (after UI is built) ---
-        if self.table_label == "threads":
-            for le in self.scroll_widget.findChildren(FocusLineEdit):
-                le.setVisible(False)
+        # if self.table_label == "threads":
+        #     for le in self.scroll_widget.findChildren(FocusLineEdit):
+        #         le.setVisible(False)
 
 
     def make_table_cell_mouse_press_handler(self, table_cell, dropdown_cell=None):
@@ -636,6 +638,20 @@ class CharactersThreadsTablesUI(QWidget):
                 self.row_clicked.emit(data)
 
     def _on_table_cell_double_click(self, table_cell, dropdown_cell=None):
+        # Emit edited data for any cell currently being edited
+        if self.table_label == "threads":
+            for le in self.scroll_widget.findChildren(QLineEdit):
+                if not le.isReadOnly():
+                    row_index = le.property("row_index")
+                    if le.text():
+                        data = {
+                            "row": row_index,
+                            "thread": le.text(),
+                            "master_id": self.existing_data[row_index]["master_id"] if row_index in self.existing_data else None
+                        }
+                        self.row_data_edited.emit(data)
+                    le.setReadOnly(True)
+
         # Your double-click logic here (was in double_click_handler)
         if table_cell.isReadOnly():
             # Set all table_cells to read-only and all dropdowns to disabled
@@ -849,13 +865,30 @@ class CharactersThreadsTablesUI(QWidget):
                     table_cell = le
                     break
             if table_cell:
-                data = {
-                    "row": row_index,
-                    "thread": table_cell.text(),
-                    "master_id": self.existing_data[row_index]["master_id"] if row_index in self.existing_data else None,
-                    "action": "delete"
-                }
-                self.row_data_edited.emit(data)
+                if table_cell.text():
+                    data = {
+                        "row": row_index,
+                        "thread": table_cell.text(),
+                        "master_id": self.existing_data[row_index]["master_id"] if row_index in self.existing_data else None,
+                        "action": "delete"
+                    }
+                    self.row_data_edited.emit(data)
+
+    def emit_edited_data_and_request_close(self):
+        # For threads: emit data for any cell being edited
+        if self.table_label == "threads":
+            for le in self.scroll_widget.findChildren(QLineEdit):
+                if not le.isReadOnly():
+                    row_index = le.property("row_index")
+                    if le.text():
+                        data = {
+                            "row": row_index,
+                            "thread": le.text(),
+                            "master_id": self.existing_data[row_index]["master_id"] if row_index in self.existing_data else None
+                        }
+                        self.row_data_edited.emit(data)
+                    le.setReadOnly(True)
+        self.request_close_table.emit()
 
     def highlight_rolled_row(self, section_label_result, row_label_result):
         def clear_highlights():
@@ -978,12 +1011,12 @@ class CharactersThreadsTablesUI(QWidget):
         if result == QDialog.Accepted and dlg.selected_label == "Clear All Rows":
             self.clear_all_rows.emit()
 
-class ThreadLineEdit(QLineEdit):
-    enter_or_escape_pressed = Signal()
-    def keyPressEvent(self, event):
-        if event.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Escape):
-            self.enter_or_escape_pressed.emit()
-        super().keyPressEvent(event)
+# class ThreadLineEdit(QLineEdit):
+#     enter_or_escape_pressed = Signal()
+#     def keyPressEvent(self, event):
+#         if event.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Escape):
+#             self.enter_or_escape_pressed.emit()
+#         super().keyPressEvent(event)
     
 class DuplicateListItemDialog(QDialog):
     def __init__(self, parent=None):
@@ -1030,10 +1063,10 @@ class DuplicateListItemDialog(QDialog):
         second_button_row.setSpacing(15)
         self.remove_entry_btn = QPushButton("Remove Entry", self)
         self.overwrite_existing_btn = QPushButton("Overwrite Existing", self)
-        second_button_row.addStretch(1)        
+        second_button_row.addStretch(1)
         second_button_row.addWidget(self.remove_entry_btn)
         second_button_row.addWidget(self.overwrite_existing_btn)
-        second_button_row.addStretch(1)        
+        second_button_row.addStretch(1)
         layout.addLayout(second_button_row)
 
         self.create_new_btn.clicked.connect(lambda: self.duplicate_entry_action(self.create_new_btn.text()))

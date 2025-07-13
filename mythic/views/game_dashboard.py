@@ -151,12 +151,15 @@ class CharactersList(QWidget):
                 "master_id": data.master_id
             }
 
+        self.duplicate_resolution_pending = False
+
         # Attach UI with navigation logic
         self.ui = CharactersThreadsTablesUI(self, controller, "characters", self.story_index, self.existing_data)
         self.ui.search_for_suggestions.connect(self.send_matching_suggestions_for_row)
         self.ui.row_clicked.connect(self.receive_clicked_row_data)
         self.ui.section_label_double_clicked.connect(self.roll_on_characters_list)
         self.ui.row_data_edited.connect(self.receive_edited_row_data)
+        self.ui.request_close_table.connect(self.handle_request_close_table)
         self.ui.close_table.connect(self.navigate_to_game_dashboard)
         self.ui.clear_all_rows.connect(self.clear_all_rows_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
@@ -170,7 +173,13 @@ class CharactersList(QWidget):
             ).first()
             if result:
                 master_id = result.master_id
-            self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_type=data['type'], first_nav_id=master_id, prev_view='characters list')
+                self.controller.show_view(
+                    GalleryView,
+                    story_index=self.story_index,
+                    first_nav_type=data['type'],
+                    first_nav_id=master_id,
+                    prev_view='characters list'
+                )
         
     def send_matching_suggestions_for_row(self, current_typed_data_dict):
         if current_typed_data_dict['data']:
@@ -220,14 +229,19 @@ class CharactersList(QWidget):
         if data_action == "delete":
             # Remove from story-specific list
             self.delete_row_data(data, master_tables_model)
+            if getattr(self, "close_requested", False):
+                self.navigate_to_game_dashboard()
 
         elif duplicates:
             user_choice = self.ui.prompt_duplicate_action(data["name"])
 
             if user_choice == "Create New":
                 self.create_row_data(data, master_tables_model)
-            elif user_choice == "Select Existing":
-                data['action'] = "select"
+                if getattr(self, "close_requested", False):
+                    self.navigate_to_game_dashboard()
+            elif user_choice in ("Select Existing", "Overwrite Existing"):
+                self.duplicate_resolution_pending = True  # Prevent closing the table until resolution is handled
+                data['action'] = "select" if user_choice == "Select Existing" else "overwrite"
                 self.controller.show_view(
                     GalleryView,
                     story_index=self.story_index,
@@ -237,29 +251,25 @@ class CharactersList(QWidget):
                     search_data=data, include_inactive=True
                 )
                 self.controller.current_view.ui.list_action_nav_item.connect(
-                    lambda nav_type, nav_id: self.select_or_overwrite_existing_item(nav_type, nav_id, data, master_tables_model)
-                )
-
-            elif user_choice == "Overwrite Existing":
-                data['action'] = "overwrite"
-                self.controller.show_view(
-                    GalleryView,
-                    story_index=self.story_index,
-                    first_nav_type=data['type'],
-                    first_nav_id=duplicates[0].id,
-                    prev_view='characters list',
-                    search_data=data, include_inactive=True
-                )
-                self.controller.current_view.ui.list_action_nav_item.connect(
-                    lambda nav_type, nav_id: self.select_or_overwrite_existing_item(nav_type, nav_id, data, master_tables_model)
+                    lambda nav_type, nav_id: self.handle_gallery_selection(nav_type, nav_id, data, master_tables_model)
                 )
 
             elif user_choice == "Remove Entry":
                 self.controller.show_view(CharactersList, story_index=self.story_index)
+                if getattr(self, "close_requested", False):
+                    self.navigate_to_game_dashboard()
 
         else:
             # No duplicates, create new entry
             self.create_row_data(data, master_tables_model)
+            if getattr(self, "close_requested", False):
+                self.navigate_to_game_dashboard()
+
+    def handle_gallery_selection(self, nav_type, nav_id, data, master_tables_model):
+        self.select_or_overwrite_existing_item(nav_type, nav_id, data, master_tables_model)
+        self.duplicate_resolution_pending = False
+        if getattr(self, "close_requested", False):
+            self.navigate_to_game_dashboard()
 
     def create_row_data(self, data, master_tables_model):
         new_master_data = master_tables_model(name=data["name"], story_index=self.story_index)
@@ -290,19 +300,20 @@ class CharactersList(QWidget):
         session.flush
         session.commit()
         deletion_type = self.ui.prompt_deletion_type()
-        self.controller.show_view(CharactersList, story_index=self.story_index)
+        if deletion_type is not None:
+            self.controller.show_view(CharactersList, story_index=self.story_index)
 
-        if deletion_type == "Delete from Story":
-            # Also mark the master data as inactive
-            session.query(master_tables_model).filter(master_tables_model.id == data["master_id"]).update({"active": False})
-            # Mark related notes as inactive
-            session.query(Notes).filter(Notes.type == data['type'], Notes.type_id == data["master_id"]).update({"active": False})
+            if deletion_type == "Delete from Story":
+                # Also mark the master data as inactive
+                session.query(master_tables_model).filter(master_tables_model.id == data["master_id"]).update({"active": False})
+                # Mark related notes as inactive
+                session.query(Notes).filter(Notes.type == data['type'], Notes.type_id == data["master_id"]).update({"active": False})
 
-        if deletion_type == "Delete from Game":
-            # Also delete from the master data
-            session.query(master_tables_model).filter(master_tables_model.id == data["master_id"]).delete()
-            # Delete related notes
-            session.query(Notes).filter(Notes.type == data['type'], Notes.type_id == data["master_id"]).delete()
+            elif deletion_type == "Delete from Game":
+                # Also delete from the master data
+                session.query(master_tables_model).filter(master_tables_model.id == data["master_id"]).delete()
+                # Delete related notes
+                session.query(Notes).filter(Notes.type == data['type'], Notes.type_id == data["master_id"]).delete()
 
         session.commit()
         return
@@ -342,6 +353,11 @@ class CharactersList(QWidget):
         session.flush()
         session.commit()
         self.controller.show_view(CharactersList, story_index=self.story_index)
+
+    def handle_request_close_table(self):
+        self.close_requested = True
+        if not self.duplicate_resolution_pending:
+            self.navigate_to_game_dashboard()
 
     def roll_on_characters_list(self, row_index, section_label_text):
         """Rolls on the characters list based on the section label."""
@@ -418,12 +434,15 @@ class ThreadsList(QWidget):
                 "master_id": data.master_id
             }
 
+        self.duplicate_resolution_pending = False
+
         # Attach UI with navigation logic
         self.ui = CharactersThreadsTablesUI(self, controller, "threads", self.story_index, existing_data)
         self.ui.search_for_suggestions.connect(self.send_matching_suggestions_for_row)
         self.ui.row_clicked.connect(self.receive_clicked_row_data)
         self.ui.section_label_double_clicked.connect(self.roll_on_threads_list)
         self.ui.row_data_edited.connect(self.receive_edited_row_data)
+        self.ui.request_close_table.connect(self.handle_request_close_table)
         self.ui.close_table.connect(self.navigate_to_game_dashboard)
         self.ui.clear_all_rows.connect(self.clear_all_rows_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
@@ -439,7 +458,7 @@ class ThreadsList(QWidget):
             self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_id=master_id, prev_view='threads list', view='Threads')
 
     def send_matching_suggestions_for_row(self, current_typed_data_dict):
-        from ui.game_dashboard_ui import ThreadLineEdit
+        # from ui.game_dashboard_ui import ThreadLineEdit
 
         if current_typed_data_dict['data']:
             matching_threads_queryset = self.threads_master_queryset.filter(
@@ -460,7 +479,7 @@ class ThreadsList(QWidget):
             # Find the QLineEdit for this row
             row_index = current_typed_data_dict['row']
             table_cell = None
-            for le in self.ui.scroll_widget.findChildren(ThreadLineEdit):
+            for le in self.ui.scroll_widget.findChildren(QLineEdit):
                 if le.property("row_index") == row_index:
                     table_cell = le
                     break
@@ -479,44 +498,45 @@ class ThreadsList(QWidget):
         if data_action == "delete":
             # Remove from story-specific list
             self.delete_row_data(data)
+            if getattr(self, "close_requested", False):
+                self.navigate_to_game_dashboard()
 
         elif duplicates:
             user_choice = self.ui.prompt_duplicate_action(data["thread"])
 
             if user_choice == "Create New":
                 self.create_row_data(data)
-            elif user_choice == "Select Existing":
-                data['action'] = "select"
+                if getattr(self, "close_requested", False):
+                    self.navigate_to_game_dashboard()
+            elif user_choice in ("Select Existing", "Overwrite Existing"):
+                self.duplicate_resolution_pending = True  # Prevent closing the table until resolution is handled
+                data['action'] = "select" if user_choice == "Select Existing" else "overwrite"
                 self.controller.show_view(
                     GalleryView,
                     story_index=self.story_index,
                     first_nav_id=duplicates[0].id,
-                    prev_view='characters list',
+                    prev_view='threads list',
                     search_data=data, include_inactive=True, view='Threads'
                 )
                 self.controller.current_view.ui.list_action_nav_item.connect(
-                    lambda nav_type, nav_id: self.select_or_overwrite_existing_item(nav_id, data)
+                    lambda nav_type, nav_id: self.handle_gallery_selection(nav_id, data)
                 )
-
-            elif user_choice == "Overwrite Existing":
-                data['action'] = "overwrite"
-                self.controller.show_view(
-                    GalleryView,
-                    story_index=self.story_index,
-                    first_nav_id=duplicates[0].id,
-                    prev_view='characters list',
-                    search_data=data, include_inactive=True, view='Threads'
-                )
-                self.controller.current_view.ui.list_action_nav_item.connect(
-                    lambda nav_type, nav_id: self.select_or_overwrite_existing_item(nav_id, data)
-                )
-
             elif user_choice == "Remove Entry":
                 self.controller.show_view(ThreadsList, story_index=self.story_index)
+                if getattr(self, "close_requested", False):
+                    self.navigate_to_game_dashboard()
 
         else:
             # No duplicates, create new entry
             self.create_row_data(data)
+            if getattr(self, "close_requested", False):
+                self.navigate_to_game_dashboard()
+
+    def handle_gallery_selection(self, nav_id, data):
+        self.select_or_overwrite_existing_item(nav_id, data)
+        self.duplicate_resolution_pending = False
+        if getattr(self, "close_requested", False):
+            self.navigate_to_game_dashboard()
 
     def create_row_data(self, data):
         new_master_data = Threads(thread=data["thread"], story_index=self.story_index)
@@ -545,19 +565,20 @@ class ThreadsList(QWidget):
         session.flush()
         session.commit()
         deletion_type = self.ui.prompt_deletion_type()
-        self.controller.show_view(ThreadsList, story_index=self.story_index)
+        if deletion_type is not None:
+            self.controller.show_view(ThreadsList, story_index=self.story_index)
 
-        if deletion_type == "Delete from Story":
-            # Also mark the master data as inactive
-            session.query(Threads).filter(Threads.id == data["master_id"]).update({"active": False})
-            # Mark related notes as inactive
-            session.query(ThreadsNotes).filter(ThreadsNotes.thread_id == data["master_id"]).update({"active": False})
+            if deletion_type == "Delete from Story":
+                # Also mark the master data as inactive
+                session.query(Threads).filter(Threads.id == data["master_id"]).update({"active": False})
+                # Mark related notes as inactive
+                session.query(ThreadsNotes).filter(ThreadsNotes.thread_id == data["master_id"]).update({"active": False})
 
-        if deletion_type == "Delete from Game":
-            # Also delete from the master data
-            session.query(Threads).filter(Threads.id == data["master_id"]).delete()
-            # Delete related notes
-            session.query(ThreadsNotes).filter(ThreadsNotes.thread_id == data["master_id"]).delete()
+            elif deletion_type == "Delete from Game":
+                # Also delete from the master data
+                session.query(Threads).filter(Threads.id == data["master_id"]).delete()
+                # Delete related notes
+                session.query(ThreadsNotes).filter(ThreadsNotes.thread_id == data["master_id"]).delete()
 
         session.commit()
         return
@@ -583,6 +604,12 @@ class ThreadsList(QWidget):
         session.flush()
         session.commit()
         self.controller.show_view(ThreadsList, story_index=self.story_index)
+
+    def handle_request_close_table(self):
+        self.close_requested = True
+        # If a duplicate popup is currently being handled, do not close yet.
+        if not self.duplicate_resolution_pending:
+            self.navigate_to_game_dashboard()
     
     def roll_on_threads_list(self, row_index, section_label_text):
         """Rolls on the threads list based on the section label."""
