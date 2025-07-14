@@ -812,7 +812,7 @@ class OraclesTablesUI(QWidget):
             # Highlight the intersection cell
             item = table_layout.itemAtPosition(self.selected_row_idx, self.chaos_factor_col)
             if item and item.widget():
-                item.widget().setStyleSheet("background-color: #ffe066; color: black; border: 2px solid #d4af37;")
+                item.widget().setStyleSheet("background-color: #yellow; color: black; border: 2px solid #d4af37;")
         else:
             # New logic: highlight intersection of selected row and selected col (if both are set)
             table_layout = getattr(self, "_table_layout", None)
@@ -826,22 +826,22 @@ class OraclesTablesUI(QWidget):
                         item.widget().setStyleSheet("background-color: white; color: black; border: 1px solid #aaa;")
             # Re-highlight selected first col and chaos row cells
             if self.selected_row_idx is not None:
-                self.first_cols_labels[self.selected_row_idx].setStyleSheet("background-color: #ffe066; color: black; border: 2px solid #d4af37; padding: 10px;")
+                self.first_cols_labels[self.selected_row_idx].setStyleSheet("background-color: #yellow; color: black; border: 2px solid #d4af37; padding: 10px;")
             if self.selected_col_idx is not None:
-                self.chaos_factor_cells[self.selected_col_idx].setStyleSheet("background-color: #ffe066; color: black; border: 2px solid #d4af37; padding: 8px;")
+                self.chaos_factor_cells[self.selected_col_idx].setStyleSheet("background-color: #yellow; color: black; border: 2px solid #d4af37; padding: 8px;")
             # Highlight intersection if both are selected
             chaos_row = len(self._fate_table)
             if self.selected_row_idx is not None and self.selected_col_idx is not None:
                 item = table_layout.itemAtPosition(self.selected_row_idx, self.selected_col_idx)
                 if item and item.widget():
-                    item.widget().setStyleSheet("background-color: #ffe066; color: black; border: 2px solid #d4af37;")
+                    item.widget().setStyleSheet("background-color: #yellow; color: black; border: 2px solid #d4af37;")
 
     def handle_chaos_row_click(self, col_idx):
         self.selected_col_idx = col_idx
         # Remove previous highlights from chaos row
         for label in self.chaos_factor_cells:
             label.setStyleSheet("background-color: #eee; color: black; border: 1px solid #aaa; padding: 8px;")
-        self.chaos_factor_cells[col_idx].setStyleSheet("background-color: #ffe066; color: black; border: 2px solid #d4af37; padding: 8px;")
+        self.chaos_factor_cells[col_idx].setStyleSheet("background-color: #yellow; color: black; border: 2px solid #d4af37; padding: 8px;")
         self.highlight_intersection()
 
     def render_non_meaning_tables(self, nav_item, table):

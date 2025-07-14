@@ -191,16 +191,6 @@ class GalleryUI(QWidget):
             background-color: #333;
         """)
 
-        if hasattr(self, 'nav_item_type'):
-            if self.nav_item_type == "characters":
-                content_layout.addWidget(self.image_section, 0, 0, 3, 3)
-            elif self.nav_item_type == "places":
-                content_layout.addWidget(self.image_section, 0, 0, 3, 5)
-            else:
-                content_layout.addWidget(self.image_section, 0, 0, 3, 4)
-        else:
-            content_layout.addWidget(self.image_section, 0, 0, 3, 4)
-
         self.image_label = QLabel(self.image_section)
         self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.image_label.setAlignment(Qt.AlignCenter) 
@@ -218,15 +208,9 @@ class GalleryUI(QWidget):
         self.details_section.setStyleSheet("""
             background-color: #333;
         """)
-        if hasattr(self, 'nav_item_type'):
-            if self.nav_item_type == "characters":
-                content_layout.addWidget(self.details_section, 0, 3, 3, 6)
-            elif self.nav_item_type == "places":
-                content_layout.addWidget(self.details_section, 0, 5, 3, 4)
-            else:
-                content_layout.addWidget(self.details_section, 0, 4, 3, 5)
-        else:
-            content_layout.addWidget(self.details_section, 0, 4, 3, 5)
+
+        initial_nav_type = first_nav_type or (nav_items[0][0] if nav_items else "characters")
+        self._place_sections(content_layout, initial_nav_type)
 
         for i in range(7):
             details_row = QLineEdit(self.details_section)
@@ -331,6 +315,21 @@ class GalleryUI(QWidget):
             QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, first_nav_type, first_nav_id))
 
 
+    def _place_sections(self, content_layout, nav_type):
+        # Remove if already present
+        content_layout.removeWidget(self.image_section)
+        content_layout.removeWidget(self.details_section)
+        # Add image_section
+        if nav_type == "characters":
+            content_layout.addWidget(self.image_section, 0, 0, 3, 3)
+            content_layout.addWidget(self.details_section, 0, 3, 3, 6)
+        elif nav_type == "places":
+            content_layout.addWidget(self.image_section, 0, 0, 3, 5)
+            content_layout.addWidget(self.details_section, 0, 5, 3, 4)
+        else:
+            content_layout.addWidget(self.image_section, 0, 0, 3, 4)
+            content_layout.addWidget(self.details_section, 0, 4, 3, 5)
+
     def handle_nav_click(self, btn, nav_type, nav_id):
         # Highlight the selected button
         # If btn is None, select the first available button
@@ -421,6 +420,11 @@ class GalleryUI(QWidget):
         self.current_saved_image_path = details_data.pop('image_path', None)
         self.details_values[0].setText(nav_type.upper()[:-1])
         self.notes_edit.setHtml(details_data.pop('notes', ''))
+
+        # Remove the image_section and details_section from the layout before re-adding with updated grid positions
+        parent_layout = self.image_section.parentWidget().layout()
+        self.nav_item_type = nav_type
+        self._place_sections(parent_layout, nav_type)
 
         if self.current_saved_image_path:
             self.set_image(self.current_saved_image_path)

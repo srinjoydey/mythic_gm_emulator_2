@@ -88,6 +88,7 @@ class GameDashboardView(QWidget):
 
     def post_updated_chaos_factor(self, new_chaos_factor):
         self.story.chaos_factor = new_chaos_factor
+        self.chaos_factor = new_chaos_factor
         session.flush()
         session.commit()
 
@@ -160,7 +161,6 @@ class CharactersList(QWidget):
         self.ui.section_label_double_clicked.connect(self.roll_on_characters_list)
         self.ui.row_data_edited.connect(self.receive_edited_row_data)
         self.ui.request_close_table.connect(self.handle_request_close_table)
-        self.ui.close_table.connect(self.navigate_to_game_dashboard)
         self.ui.clear_all_rows.connect(self.clear_all_rows_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
@@ -443,7 +443,6 @@ class ThreadsList(QWidget):
         self.ui.section_label_double_clicked.connect(self.roll_on_threads_list)
         self.ui.row_data_edited.connect(self.receive_edited_row_data)
         self.ui.request_close_table.connect(self.handle_request_close_table)
-        self.ui.close_table.connect(self.navigate_to_game_dashboard)
         self.ui.clear_all_rows.connect(self.clear_all_rows_data)
         self.setLayout(self.ui.layout)  # Use UI's layout directly
 
