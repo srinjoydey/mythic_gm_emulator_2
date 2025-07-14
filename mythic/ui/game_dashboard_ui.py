@@ -687,7 +687,7 @@ class CharactersThreadsTablesUI(QWidget):
                     "data": s.text()
                 })
             )
-        self.debounce_timers[sender].start(1200)
+        self.debounce_timers[sender].start(1100)
 
     def show_suggestions_popup(self, table_cell, suggestions):
             # Remove old popup if any
@@ -901,7 +901,7 @@ class CharactersThreadsTablesUI(QWidget):
                     cb.setStyleSheet(orig)
 
         def highlight_row_in_section(section_label_str, row_label_str):
-            highlight_override = "background-color: #yellow; color: black;"
+            highlight_override = "background-color: yellow; color: black;"
             # Find the section's starting row index
             section_start_row = None
             for section_label in self.scroll_widget.findChildren(QLabel):
@@ -993,7 +993,7 @@ class CharactersThreadsTablesUI(QWidget):
             highlight_row_in_section(section_label_str, self._highlight_sequence[self._highlight_sequence_pos])
             self._highlight_sequence_pos += 1
             if self._highlight_sequence_pos < len(self._highlight_sequence):
-                QTimer.singleShot(1200, highlight_next)
+                QTimer.singleShot(1100, highlight_next)
             # Keep the last highlight (do not clear after last)
 
         highlight_next()
