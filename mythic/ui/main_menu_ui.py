@@ -500,6 +500,23 @@ class ExistingStoryUI(QWidget):
         result = dlg.exec()
         if result == QDialog.Accepted and dlg.selected_label == "Clear All Story Related Data":
             self.delete_btn_clicked.emit(story_index)
+            # Refresh the UI after deletion
+            self.refresh_existing_stories_ui()
+
+    def refresh_existing_stories_ui(self):
+        # Remove all buttons and labels
+        for i in reversed(range(self.select_button_layout.count())):
+            widget = self.select_button_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        for i in reversed(range(self.description_layout.count())):
+            widget = self.description_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        self.button_mapping.clear()
+        self.selected_button = None
+        # Re-create buttons and labels with updated data
+        self.create_buttons()
         
 
 class OraclesTablesUI(QWidget):

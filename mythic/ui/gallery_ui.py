@@ -209,8 +209,29 @@ class GalleryUI(QWidget):
             background-color: #333;
         """)
 
-        initial_nav_type = first_nav_type or (nav_items[0][0] if nav_items else "characters")
+        # Determine initial nav_type and nav_id
+        if first_nav_type:
+            # Ensure plural form for nav_type
+            if not first_nav_type.endswith('s'):
+                initial_nav_type = first_nav_type + 's'
+            else:
+                initial_nav_type = first_nav_type
+        else:
+            initial_nav_type = nav_items[0][0] if nav_items else "characters"
+        if first_nav_id:
+            initial_nav_id = first_nav_id
+        else:
+            # For multi-story mode, nav_items[0][2] is id, for single-story nav_items[0][1] is id
+            if len(nav_items[0]) == 4:
+                initial_nav_id = nav_items[0][2]
+            else:
+                initial_nav_id = nav_items[0][1]
+
         self._place_sections(content_layout, initial_nav_type)
+
+        # Simulate a click on the correct nav button
+        first_btn = self.nav_btn_map.get((initial_nav_type, initial_nav_id))
+        QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, initial_nav_type, initial_nav_id))
 
         for i in range(7):
             details_row = QLineEdit(self.details_section)
@@ -316,10 +337,23 @@ class GalleryUI(QWidget):
 
 
     def _place_sections(self, content_layout, nav_type):
-        # Remove if already present
+        # Hide and detach widgets before removing
+        self.image_section.hide()
+        self.details_section.hide()
+        self.image_section.setParent(None)
+        self.details_section.setParent(None)
+
+        print("Before remove/add:")
+        print("image_section geometry:", self.image_section.geometry())
+        print("details_section geometry:", self.details_section.geometry())
+        print("image_section parent:", self.image_section.parent())
+        print("details_section parent:", self.details_section.parent())
+
+        # Remove if already present (safe even if not present)
         content_layout.removeWidget(self.image_section)
         content_layout.removeWidget(self.details_section)
-        # Add image_section
+
+        # Add image_section and details_section in the correct positions
         if nav_type == "characters":
             content_layout.addWidget(self.image_section, 0, 0, 3, 3)
             content_layout.addWidget(self.details_section, 0, 3, 3, 6)
@@ -329,6 +363,35 @@ class GalleryUI(QWidget):
         else:
             content_layout.addWidget(self.image_section, 0, 0, 3, 4)
             content_layout.addWidget(self.details_section, 0, 4, 3, 5)
+
+        # Show widgets again
+        self.image_section.show()
+        self.details_section.show()
+
+        print("After add/show:")
+        print("image_section geometry:", self.image_section.geometry())
+        print("details_section geometry:", self.details_section.geometry())
+        print("image_section parent:", self.image_section.parent())
+        print("details_section parent:", self.details_section.parent())
+
+        # Force layout recalculation
+        content_layout.invalidate()
+        content_layout.activate()
+        self.image_section.updateGeometry()
+        self.details_section.updateGeometry()
+        self.updateGeometry()
+
+        # --- ADD THESE LINES ---
+        parent_frame = self.image_section.parentWidget()
+        if parent_frame:
+            parent_frame.updateGeometry()
+            parent_frame.adjustSize()
+            parent_frame.repaint()
+        self.layout.activate()
+        self.layout.update()
+        self.adjustSize()
+        self.repaint()
+        # --- END ADDITION ---
 
     def handle_nav_click(self, btn, nav_type, nav_id):
         # Highlight the selected button

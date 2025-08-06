@@ -184,25 +184,25 @@ class CharactersList(QWidget):
     def send_matching_suggestions_for_row(self, current_typed_data_dict):
         if current_typed_data_dict['data']:
             matching_characters_queryset = self.characters_master_queryset.filter(
-                Characters.active==False, Characters.name.like(f"%{current_typed_data_dict['data']}%")
-            ).with_entities(Characters.id, Characters.name)
+                Characters.name.like(f"%{current_typed_data_dict['data']}%")
+            ).with_entities(Characters.id, Characters.name, Characters.active)
             matching_places_queryset = self.places_master_queryset.filter(
-                Places.active==False, Places.name.like(f"%{current_typed_data_dict['data']}%")
-            ).with_entities(Places.id, Places.name)
-            matching_items_queryset = self.items_master_queryset.filter(Items.active == False).filter(
+                Places.name.like(f"%{current_typed_data_dict['data']}%")
+            ).with_entities(Places.id, Places.name, Places.active)
+            matching_items_queryset = self.items_master_queryset.filter(
                 Items.name.like(f"%{current_typed_data_dict['data']}%")
-            ).with_entities(Items.id, Items.name)
+            ).with_entities(Items.id, Items.name, Items.active)
 
             suggestions = {}
 
-            for char_id, char_name in matching_characters_queryset:
-                suggestions[f"characters"] = {"id": char_id, "name": char_name}
-            for place_id, place_name in matching_places_queryset:
-                suggestions[f"places"] = {"id": place_id, "name": place_name}
-            for item_id, item_name in matching_items_queryset:
-                suggestions[f"items"] = {"id": item_id, "name": item_name}
+            for char_id, char_name, char_active in matching_characters_queryset:
+                suggestions[f"characters"] = {"id": char_id, "name": char_name, "active": char_active}
+            for place_id, place_name, place_active in matching_places_queryset:
+                suggestions[f"places"] = {"id": place_id, "name": place_name, "active": place_active}
+            for item_id, item_name, item_active in matching_items_queryset:
+                suggestions[f"items"] = {"id": item_id, "name": item_name, "active": item_active}
 
-            all_names = [(v["id"], v['name']) for k, v in suggestions.items()]
+            all_names = [(v["id"], v['name'], v['active']) for k, v in suggestions.items()]
             if all_names:
                 all_names.sort(key=lambda x: (x[1].lower(), x[0]))  # Sort by name (case-insensitive), then id
 
@@ -221,49 +221,50 @@ class CharactersList(QWidget):
         master_tables_model = MODEL_MAP.get(data['type'])
         data_action = data.get("action")
 
-        duplicates = session.query(master_tables_model).filter(
-            master_tables_model.story_index == self.story_index, 
-            master_tables_model.name == data["name"]
-        ).all()
+        if master_tables_model is not None:
+            duplicates = session.query(master_tables_model).filter(
+                master_tables_model.story_index == self.story_index, 
+                master_tables_model.name == data["name"]
+            ).all()
 
-        if data_action == "delete":
-            # Remove from story-specific list
-            self.delete_row_data(data, master_tables_model)
-            if getattr(self, "close_requested", False):
-                self.navigate_to_game_dashboard()
+            if data_action == "delete":
+                # Remove from story-specific list
+                self.delete_row_data(data, master_tables_model)
+                if getattr(self, "close_requested", False):
+                    self.navigate_to_game_dashboard()
 
-        elif duplicates:
-            user_choice = self.ui.prompt_duplicate_action(data["name"])
+            elif duplicates:
+                user_choice = self.ui.prompt_duplicate_action(data["name"])
 
-            if user_choice == "Create New":
+                if user_choice == "Create New":
+                    self.create_row_data(data, master_tables_model)
+                    if getattr(self, "close_requested", False):
+                        self.navigate_to_game_dashboard()
+                elif user_choice in ("Select Existing", "Overwrite Existing"):
+                    self.duplicate_resolution_pending = True  # Prevent closing the table until resolution is handled
+                    data['action'] = "select" if user_choice == "Select Existing" else "overwrite"
+                    self.controller.show_view(
+                        GalleryView,
+                        story_index=self.story_index,
+                        first_nav_type=data['type'],
+                        first_nav_id=duplicates[0].id,
+                        prev_view='characters list',
+                        search_data=data
+                    )
+                    self.controller.current_view.ui.list_action_nav_item.connect(
+                        lambda nav_type, nav_id: self.handle_gallery_selection(nav_type, nav_id, data, master_tables_model)
+                    )
+
+                elif user_choice == "Remove Entry":
+                    self.controller.show_view(CharactersList, story_index=self.story_index)
+                    if getattr(self, "close_requested", False):
+                        self.navigate_to_game_dashboard()
+
+            else:
+                # No duplicates, create new entry
                 self.create_row_data(data, master_tables_model)
                 if getattr(self, "close_requested", False):
                     self.navigate_to_game_dashboard()
-            elif user_choice in ("Select Existing", "Overwrite Existing"):
-                self.duplicate_resolution_pending = True  # Prevent closing the table until resolution is handled
-                data['action'] = "select" if user_choice == "Select Existing" else "overwrite"
-                self.controller.show_view(
-                    GalleryView,
-                    story_index=self.story_index,
-                    first_nav_type=data['type'],
-                    first_nav_id=duplicates[0].id,
-                    prev_view='characters list',
-                    search_data=data, include_inactive=True
-                )
-                self.controller.current_view.ui.list_action_nav_item.connect(
-                    lambda nav_type, nav_id: self.handle_gallery_selection(nav_type, nav_id, data, master_tables_model)
-                )
-
-            elif user_choice == "Remove Entry":
-                self.controller.show_view(CharactersList, story_index=self.story_index)
-                if getattr(self, "close_requested", False):
-                    self.navigate_to_game_dashboard()
-
-        else:
-            # No duplicates, create new entry
-            self.create_row_data(data, master_tables_model)
-            if getattr(self, "close_requested", False):
-                self.navigate_to_game_dashboard()
 
     def handle_gallery_selection(self, nav_type, nav_id, data, master_tables_model):
         self.select_or_overwrite_existing_item(nav_type, nav_id, data, master_tables_model)
@@ -292,27 +293,31 @@ class CharactersList(QWidget):
 
     def delete_row_data(self, data, master_tables_model):
         session.query(self.characters_list_model).filter(self.characters_list_model.row == data['row']).update({
-                    "name": None,
-                    "type": None,
-                    "master_id": None
-                })
+            "name": None,
+            "type": None,
+            "master_id": None
+        })
         # Handle deletion of the row
-        session.flush
+        session.flush()
         session.commit()
         deletion_type = self.ui.prompt_deletion_type()
         if deletion_type is not None:
             self.controller.show_view(CharactersList, story_index=self.story_index)
 
             if deletion_type == "Delete from Story":
-                # Also mark the master data as inactive
-                session.query(master_tables_model).filter(master_tables_model.id == data["master_id"]).update({"active": False})
-                # Mark related notes as inactive
-                session.query(Notes).filter(Notes.type == data['type'], Notes.type_id == data["master_id"]).update({"active": False})
+                # Check for other rows with the same name in characters_list_model
+                duplicate_count = session.query(self.characters_list_model).filter(
+                    self.characters_list_model.name == data["name"],
+                    self.characters_list_model.type == data["type"],
+                    self.characters_list_model.master_id == data["master_id"]
+                ).count()
+                if duplicate_count == 0:
+                    # Only mark master data and notes inactive if no other copy exists
+                    session.query(master_tables_model).filter(master_tables_model.id == data["master_id"]).update({"active": False})
+                    session.query(Notes).filter(Notes.type == data['type'], Notes.type_id == data["master_id"]).update({"active": False})
 
             elif deletion_type == "Delete from Game":
-                # Also delete from the master data
                 session.query(master_tables_model).filter(master_tables_model.id == data["master_id"]).delete()
-                # Delete related notes
                 session.query(Notes).filter(Notes.type == data['type'], Notes.type_id == data["master_id"]).delete()
 
         session.commit()
@@ -457,21 +462,18 @@ class ThreadsList(QWidget):
             self.controller.show_view(GalleryView, story_index=self.story_index, first_nav_id=master_id, prev_view='threads list', view='Threads')
 
     def send_matching_suggestions_for_row(self, current_typed_data_dict):
-        # from ui.game_dashboard_ui import ThreadLineEdit
-
         if current_typed_data_dict['data']:
             matching_threads_queryset = self.threads_master_queryset.filter(
-                Threads.active == False,
                 Threads.thread.like(f"%{current_typed_data_dict['data']}%"),
                 Threads.story_index == self.story_index
-            ).with_entities(Threads.id, Threads.thread)
+            ).with_entities(Threads.id, Threads.thread, Threads.active)
 
             suggestions = {}
 
-            for thread_id, thread_name in matching_threads_queryset:
-                suggestions[f"threads"] = {"id": thread_id, "name": thread_name}
+            for thread_id, thread_name, thread_active in matching_threads_queryset:
+                suggestions[f"threads"] = {"id": thread_id, "name": thread_name, "active": thread_active}
 
-            all_names = [(v["id"], v['name']) for k, v in suggestions.items()]
+            all_names = [(v["id"], v['name'], v['active']) for k, v in suggestions.items()]
             if all_names:
                 all_names.sort(key=lambda x: (x[1].lower(), x[0]))  # Sort by name (case-insensitive), then id
 
@@ -568,10 +570,16 @@ class ThreadsList(QWidget):
             self.controller.show_view(ThreadsList, story_index=self.story_index)
 
             if deletion_type == "Delete from Story":
-                # Also mark the master data as inactive
-                session.query(Threads).filter(Threads.id == data["master_id"]).update({"active": False})
-                # Mark related notes as inactive
-                session.query(ThreadsNotes).filter(ThreadsNotes.thread_id == data["master_id"]).update({"active": False})
+                # Check for other rows with the same name in threads_list_model
+                duplicate_count = session.query(self.threads_list_model).filter(
+                    self.threads_list_model.thread == data["thread"],
+                    self.threads_list_model.master_id == data["master_id"]
+                ).count()
+                if duplicate_count == 0:
+                    # Only mark master data and notes inactive if no other copy exists
+                    session.query(Threads).filter(Threads.id == data["master_id"]).update({"active": False})
+                    # Mark related notes as inactive
+                    session.query(ThreadsNotes).filter(ThreadsNotes.thread_id == data["master_id"]).update({"active": False})
 
             elif deletion_type == "Delete from Game":
                 # Also delete from the master data

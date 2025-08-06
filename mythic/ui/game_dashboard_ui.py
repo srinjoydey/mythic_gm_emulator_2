@@ -32,7 +32,7 @@ class GameDashboardUI(QWidget):
         self.layout.setSpacing(0)
 
         # Title Label (Centered)
-        self.title_label = QLabel(parent.story_name, self)
+        self.title_label = QLabel(parent.story_name if parent.story_name is not None else "", self)
         self.title_label.setFont(QFont("Arial", 28))
         # Apply transparent background
         self.title_label.setStyleSheet("""
@@ -706,8 +706,12 @@ class CharactersThreadsTablesUI(QWidget):
             popup.setWindowFlags(Qt.Popup)
             popup.setFocusPolicy(Qt.NoFocus)
             popup.setStyleSheet("background: #fffbe6; color: #800000; font-size: 16px; border: 1px solid #800000;")
-            for id, name in suggestions:
+            for id, name, active in suggestions:
                 item = QListWidgetItem(name)
+                if active:
+                    item.setForeground(QColor("#800000"))  # maroon
+                else:
+                    item.setForeground(QColor("black"))
                 popup.addItem(item)
 
             pos = table_cell.mapToGlobal(table_cell.rect().bottomLeft())
