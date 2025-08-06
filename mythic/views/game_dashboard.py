@@ -345,8 +345,8 @@ class CharactersList(QWidget):
             elif existing_nav_type == "place":
                 selected_master_data.type = None
                 selected_master_data.location = None
-                selected_master_data.ambience_1 = None
-                selected_master_data.ambience_2 = None
+                selected_master_data.atmosphere_1 = None
+                selected_master_data.atmosphere_2 = None
             elif existing_nav_type == "item":
                 selected_master_data.material = None
                 selected_master_data.rarity = None

@@ -7,7 +7,7 @@ import shutil
 
 
 CHARACTERS_FIELDS = ['name', 'race_religion', 'age', 'role_profession', 'social_status', 'economic_status', 'image_path', 'notes']
-PLACES_FIELDS = ['name', 'type', 'location', 'ambience_1', 'ambience_2', 'image_path', 'notes']
+PLACES_FIELDS = ['name', 'type', 'location', 'atmosphere_1', 'atmosphere_2', 'image_path', 'notes']
 ITEMS_FIELDS = ['name', 'material', 'rarity', 'image_path', 'notes']
 
 
@@ -513,7 +513,7 @@ class GalleryUI(QWidget):
             label = self.details_fields[idx]
             if label in ("race_religion", "role_profession"):
                 label = label.replace("_", " / ").title()
-            elif label in ("ambience_1", "ambience_2"):
+            elif label in ("atmosphere_1", "atmosphere_2"):
                 label = label[:-2].title()
             else:
                 label = label.replace("_", " ").title()
