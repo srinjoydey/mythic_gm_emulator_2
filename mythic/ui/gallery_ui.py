@@ -6,8 +6,8 @@ import os
 import shutil
 
 
-CHARACTERS_FIELDS = ['name', 'race', 'age', 'role_profession', 'social_status', 'economic_status', 'image_path', 'notes']
-PLACES_FIELDS = ['name', 'weather', 'smell', 'image_path', 'notes']
+CHARACTERS_FIELDS = ['name', 'race_religion', 'age', 'role_profession', 'social_status', 'economic_status', 'image_path', 'notes']
+PLACES_FIELDS = ['name', 'type', 'location', 'ambience_1', 'ambience_2', 'image_path', 'notes']
 ITEMS_FIELDS = ['name', 'material', 'rarity', 'image_path', 'notes']
 
 
@@ -449,9 +449,9 @@ class GalleryUI(QWidget):
         if self.current_saved_image_path:
             self.set_image(self.current_saved_image_path)
         else:
-            self.image_label.clear()
+            self.current_content["image_label"].clear()
             self._original_pixmap = None
-            self.image_upload_button.setText("Upload Image")
+            self.current_content["image_upload_button"].setText("Upload Image")
 
         for i in range(1, len(self.current_content["details_values"])):
             if self.details_fields and i-1 < len(self.details_fields) - 2:
@@ -511,8 +511,10 @@ class GalleryUI(QWidget):
                 break
             line_edit = details_values[idx + 1]
             label = self.details_fields[idx]
-            if label == "role_profession":
+            if label in ("race_religion", "role_profession"):
                 label = label.replace("_", " / ").title()
+            elif label in ("ambience_1", "ambience_2"):
+                label = label[:-2].title()
             else:
                 label = label.replace("_", " ").title()
             value = line_edit.text()

@@ -21,7 +21,7 @@ class Characters(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=True)
-    race = Column(String, nullable=True)
+    race_religion = Column(String, nullable=True)
     age = Column(String, nullable=True)
     role_profession = Column(String, nullable=True)
     social_status = Column(String, nullable=True)
@@ -37,8 +37,10 @@ class Places(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=True)
-    weather = Column(String, nullable=True)
-    smell = Column(String, nullable=True)
+    type = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    ambience_1 = Column(String, nullable=True)
+    ambience_2 = Column(String, nullable=True)
     story_index = Column(Integer, nullable=True)
     active = Column(Boolean, default=True)    
     image_path = Column(String, nullable=True)

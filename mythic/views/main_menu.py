@@ -143,7 +143,7 @@ class ExistingStoryView(QWidget):
             StoriesIndex.description: new_description
         })
         session.commit()
-        self.controller.show_view(ExistingStoryView)
+        self.controller.show_view(ExistingStoryView, all_stories=self.all_stories)
 
     def delete_story(self, index):
         """Deletes the selected story."""

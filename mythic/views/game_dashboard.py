@@ -337,14 +337,16 @@ class CharactersList(QWidget):
 
         if new_record_data['action'] == "overwrite":
             if existing_nav_type == "character":
-                selected_master_data.race = None
+                selected_master_data.race_religion = None
                 selected_master_data.age = None
                 selected_master_data.role_profession = None
                 selected_master_data.social_status = None
                 selected_master_data.economic_status = None
             elif existing_nav_type == "place":
-                selected_master_data.weather = None
-                selected_master_data.smell = None
+                selected_master_data.type = None
+                selected_master_data.location = None
+                selected_master_data.ambience_1 = None
+                selected_master_data.ambience_2 = None
             elif existing_nav_type == "item":
                 selected_master_data.material = None
                 selected_master_data.rarity = None
