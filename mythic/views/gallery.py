@@ -61,9 +61,11 @@ class GalleryView(QWidget):
 
         if view == "Characters":
             self.nav_bar_list = self.characters_list + self.places_list + self.items_list
+            self.nav_bar_list.sort(key=lambda x: x[-1])  # Always sort by name
             self.ui = GalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_type=self.first_nav_type, first_nav_id=self.first_nav_id, prev_view=self.prev_view, search_with=self.search_data)
         else:
             self.nav_bar_list = self.threads_list
+            self.nav_bar_list.sort(key=lambda x: x[-1])  # Always sort by name
             self.ui = ThreadsGalleryUI(self, controller, self.nav_bar_list, existing_stories, first_nav_id=self.first_nav_id, prev_view=self.prev_view, search_with=self.search_data)
 
         # Attach UI with navigation logic
