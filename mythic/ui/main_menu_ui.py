@@ -49,9 +49,7 @@ class MainMenuUI(QWidget):
         self.button_layout = QVBoxLayout(self.button_frame)
         self.button_layout.setContentsMargins(0, 0, 221, 0)
         self.button_layout.setSpacing(15)  # Add spacing between buttons
-        # self.layout.addWidget(self.button_frame, 1, 2, 2, 3, alignment=Qt.AlignBottom | Qt.AlignRight)
         self.layout.addWidget(self.button_frame, 1, 5, 3, 2, alignment=Qt.AlignRight | Qt.AlignVCenter)
-        # self.layout.addWidget(self.button_frame, 1, 2, 2, 3)
 
         self.create_buttons()      
 
@@ -76,9 +74,8 @@ class MainMenuUI(QWidget):
             self.button_layout.addWidget(btn)
 
     def show_message_under_existing_btn(self, message):
-        # Find the Existing Story button and New Story button
+        # Find the Existing Story button
         existing_btn = None
-        # new_story_btn = None
         for i in range(self.button_layout.count()):
             btn = self.button_layout.itemAt(i).widget()
             if isinstance(btn, QPushButton):
@@ -133,7 +130,7 @@ class NewStoryUI(QWidget):
         # **Text Input Section**
         self.text_frame = QFrame(self)
         self.text_layout = QVBoxLayout(self.text_frame)
-        self.text_layout.setContentsMargins(100, 10, 100, 70)
+        self.text_layout.setContentsMargins(100, 10, 100, 0)
 
         # Create Title Input
         self.title_label_widget = QLabel("Title / Label", self.text_frame)
@@ -148,8 +145,8 @@ class NewStoryUI(QWidget):
         # **Error Label (Initially Hidden)**
         self.title_error_label = QLabel("Title is required!", self.text_frame)
         self.title_error_label.setFont(QFont("Arial", 14))
-        self.title_error_label.setStyleSheet("color: maroon; font-weight: bold;")
-        self.title_error_label.setVisible(False)  # Hidden initially
+        self.title_error_label.setStyleSheet("color: maroon; font-weight: bold; background: transparent; padding-top: 20px; padding-bottom: 20px;")
+        self.title_error_label.setText("")  # Hidden initially
 
         # **Description Input (Always Active)**
         self.description_label_widget = QLabel("Description", self.text_frame)
@@ -161,15 +158,33 @@ class NewStoryUI(QWidget):
         self.description_input.setPlaceholderText("Enter description...")
         self.description_input.setStyleSheet("padding: 10px; font-style: italic;")
 
+        # --- Character Counter Label ---
+        self.desc_char_limit = 265
+        self.desc_char_count_label = QLabel(f"0 / {self.desc_char_limit}", self.text_frame)
+        self.desc_char_count_label.setFont(QFont("Arial", 12))
+        self.desc_char_count_label.setStyleSheet("color: #999; background: transparent;")
+        self.desc_char_count_label.setContentsMargins(10, 10, 10, 10)
+        self.desc_char_count_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        # Place the counter at the bottom right of the QTextEdit using a grid layout overlay
+        desc_box_frame = QFrame(self.text_frame)
+        desc_box_layout = QGridLayout(desc_box_frame)
+        desc_box_layout.setContentsMargins(0, 0, 0, 0)
+        desc_box_layout.setSpacing(0)
+        desc_box_layout.addWidget(self.description_input, 0, 0)
+        desc_box_layout.addWidget(self.desc_char_count_label, 0, 0, alignment=Qt.AlignBottom | Qt.AlignRight)
+
         # Add widgets to layout
         self.text_layout.addWidget(self.title_label_widget)
         self.text_layout.addWidget(self.title_input)
         self.text_layout.addWidget(self.title_error_label)  # Error label beneath title        
-        self.text_layout.addSpacing(50)  
         self.text_layout.addWidget(self.description_label_widget)
-        self.text_layout.addWidget(self.description_input)
+        self.text_layout.addWidget(desc_box_frame)  # Use the frame with counter
 
         self.layout.addWidget(self.text_frame, 1, 2, 3, 3)
+
+        # Connect textChanged to update counter
+        self.description_input.textChanged.connect(self.update_desc_char_count)
 
         # **Button Section**
         self.button_frame = QFrame(self)
@@ -201,17 +216,29 @@ class NewStoryUI(QWidget):
         self.button_layout.addSpacing(10)  # Add space between buttons
         self.button_layout.addWidget(back_btn)
 
+    def update_desc_char_count(self):
+        text = self.description_input.toPlainText()
+        count = len(text)
+        self.desc_char_count_label.setText(f"{count} / {self.desc_char_limit}")
+        # Color the counter red if over limit
+        if count > self.desc_char_limit:
+            self.desc_char_count_label.setStyleSheet("color: maroon; background: #555; font-weight: bold;")
+
     def validate_and_submit(self):
         """Validates title and submits data only if valid."""
         title_text = self.title_input.text().strip()
         description_text = self.description_input.toPlainText().strip()
+        desc_len = len(description_text)
 
         if not title_text:  # If title is empty, show error
-            self.title_error_label.setVisible(True)
+            self.title_error_label.setText("Title is required!")
             return  # Stop execution without submitting
 
-        # Hide error if title is valid
-        self.title_error_label.setVisible(False)
+        if desc_len > self.desc_char_limit:
+            self.title_error_label.setText(
+                f"Description too lengthy. Please shorten by {desc_len - self.desc_char_limit} characters."
+            )
+            return
 
         # Send data
         data = {
@@ -325,7 +352,7 @@ class ExistingStoryUI(QWidget):
                 story_description = " "
             description = QLabel(story_description, self.description_frame)
             description.setWordWrap(True)
-            description.setFont(QFont("Arial", 14))
+            description.setFont(QFont("Arial", 13))
             description.setFixedSize(select_button_width * 2, select_button_height)
             description.setStyleSheet("""
                 QLabel {
