@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit, QFileDialog, QTextEdit, QToolBar, QColorDialog, QFontComboBox, QComboBox, QCheckBox, QRadioButton, QButtonGroup, QApplication, QSpacerItem, QDialog, QStackedLayout)
-from PySide6.QtGui import QFont, QIcon, QPixmap, QTextCharFormat, QTextListFormat, QAction
+from PySide6.QtGui import QFont, QIcon, QPixmap, QTextCharFormat, QTextListFormat, QAction, QColor, QPainter
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
 import os
 import shutil
@@ -298,7 +298,7 @@ class GalleryUI(QWidget):
         self.toolbar_buttons()
 
         # Notes Edit Area
-        self.notes_edit = QTextEdit(self.notes_frame)
+        self.notes_edit = CustomCaretTextEdit(self.notes_frame, caret_color=QColor("black"))
         self.notes_edit.setPlaceholderText("Enter your notes here...")
         self.notes_edit.setFont(QFont("Arial", 14))
         self.notes_edit.setStyleSheet("background: #777; color: black; border: none;")
@@ -964,7 +964,7 @@ class ThreadsGalleryUI(QWidget):
         self.toolbar_buttons()
 
         # Notes Edit Area
-        self.notes_edit = QTextEdit(self.notes_frame)
+        self.notes_edit = CustomCaretTextEdit(self.notes_frame, caret_color=QColor("black"))
         self.notes_edit.setPlaceholderText("Enter your notes here...")
         self.notes_edit.setFont(QFont("Arial", 14))
         self.notes_edit.setStyleSheet("background: #777; color: black; border: none;")
@@ -1571,3 +1571,27 @@ class FullScreenNotesDialog(QDialog):
             self.close()
         else:
             super().keyPressEvent(event)
+
+
+class CustomCaretTextEdit(QTextEdit):
+    def __init__(self, *args, caret_color=QColor("red"), **kwargs):
+        super().__init__(*args, **kwargs)
+        self._caret_color = caret_color
+        self._show_caret = True
+        self._blink_timer = QTimer(self)
+        self._blink_timer.timeout.connect(self._toggle_caret)
+        self._blink_timer.start(500)  # 500ms blink
+
+    def _toggle_caret(self):
+        self._show_caret = not self._show_caret
+        self.viewport().update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.hasFocus() and self._show_caret:
+            cursor = self.textCursor()
+            rect = self.cursorRect(cursor)
+            painter = QPainter(self.viewport())
+            painter.setPen(self._caret_color)
+            painter.drawLine(rect.left(), rect.top(), rect.left(), rect.bottom())
+            painter.end()
