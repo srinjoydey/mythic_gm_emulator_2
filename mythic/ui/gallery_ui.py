@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit, QFileDialog, QTextEdit, QToolBar, QColorDialog, QFontComboBox, QComboBox, QCheckBox, QRadioButton, QButtonGroup, QApplication, QSpacerItem, QDialog)
+    QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QScrollArea, QSizePolicy, QLineEdit, QFileDialog, QTextEdit, QToolBar, QColorDialog, QFontComboBox, QComboBox, QCheckBox, QRadioButton, QButtonGroup, QApplication, QSpacerItem, QDialog, QStackedLayout)
 from PySide6.QtGui import QFont, QIcon, QPixmap, QTextCharFormat, QTextListFormat, QAction
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QEvent
 import os
@@ -29,7 +29,6 @@ class GalleryUI(QWidget):
         existing_stories_indexes = [idx for idx, name in self.existing_stories.items() if name]
         self.prev_view = prev_view
         self.nav_buttons = []
-        self.details_values = []
         self.details_fields = None
         self.selected_nav_btn = None
         self.nav_item_edited_data = {}  # Will hold [nav_type, nav_id, {field: value, ...}] entries
@@ -39,6 +38,7 @@ class GalleryUI(QWidget):
         self.nav_btn_map = {}
         self.current_saved_image_path = None
         self.current_notes = None
+        self.details_values_map = {}  # Per-nav_type details rows
         if prev_view in ('game dashboard', 'characters list', 'threads list'):
             self.modal = True
             self.last_search_options = ["Ascending", "Active", ["Characters", "Places", "Items"], None]
@@ -129,7 +129,6 @@ class GalleryUI(QWidget):
         close_button.clicked.connect(self.emit_details_data_and_close)
 
         close_row_layout = QHBoxLayout(close_row_container)
-            
         close_row_layout.addWidget(self.search_box, alignment=Qt.AlignLeft | Qt.AlignVCenter)
         close_row_layout.addStretch(1)
         if not search_with:
@@ -174,100 +173,104 @@ class GalleryUI(QWidget):
 
         self.nav_layout.addStretch()
         self.nav_scroll_area.setWidget(self.nav_frame)
-        self.layout.addWidget(self.nav_scroll_area, 1, 0, 10, 3)
+        self.layout.addWidget(self.nav_scroll_area, 1, 0, 12, 3)
 
-        # --- Right Content Area ---
-        content_frame = QFrame(self)
-        content_layout = QGridLayout(content_frame)
-        if self.modal:
-            content_layout.setContentsMargins(10, 0, 0, 0)
-        else:
-            content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(0)
+        # --- Right Content Area with QStackedLayout ---
+        self.content_stack = QStackedLayout()
+        self.content_frames = {}
+        self.details_values_map = {}
 
-        # --- Image ---
-        self.image_section = QFrame(content_frame)
-        self.image_section.setStyleSheet("""
-            background-color: #333;
-        """)
+        for nav_type in ["characters", "places", "items"]:
+            frame = QFrame(self)
+            layout = QGridLayout(frame)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(0)
 
-        self.image_label = QLabel(self.image_section)
-        self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.image_label.setAlignment(Qt.AlignCenter) 
-        image_section_layout = QVBoxLayout(self.image_section)
-        image_section_layout.setContentsMargins(0, 0, 0, 0)
-        image_section_layout.setSpacing(0)
-        image_section_layout.addWidget(self.image_label)
-        self.image_label.mouseDoubleClickEvent = self.show_fullscreen_image
+            # Image section
+            image_section = QFrame(frame)
+            image_section.setStyleSheet("background-color: #333;")
+            image_label = QLabel(image_section)
+            image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            image_label.setAlignment(Qt.AlignCenter)
+            image_section_layout = QVBoxLayout(image_section)
+            image_section_layout.setContentsMargins(0, 0, 0, 0)
+            image_section_layout.setSpacing(0)
+            image_section_layout.addWidget(image_label)
 
-        # --- Details ---
-        self.details_section = QFrame(content_frame)
-        self.details_layout = QVBoxLayout(self.details_section)
-        self.details_layout.setContentsMargins(0, 0, 0, 0)
-        self.details_layout.setSpacing(0)
-        self.details_section.setStyleSheet("""
-            background-color: #333;
-        """)
+            # Details section
+            details_section = QFrame(frame)
+            details_layout = QVBoxLayout(details_section)
+            details_layout.setContentsMargins(0, 0, 0, 0)
+            details_layout.setSpacing(0)
+            details_section.setStyleSheet("background-color: #333;")
 
-        # Determine initial nav_type and nav_id
-        if first_nav_type:
-            # Ensure plural form for nav_type
-            if not first_nav_type.endswith('s'):
-                initial_nav_type = first_nav_type + 's'
-            else:
-                initial_nav_type = first_nav_type
-        else:
-            initial_nav_type = nav_items[0][0] if nav_items else "characters"
-        if first_nav_id:
-            initial_nav_id = first_nav_id
-        else:
-            # For multi-story mode, nav_items[0][2] is id, for single-story nav_items[0][1] is id
-            if len(nav_items[0]) == 4:
-                initial_nav_id = nav_items[0][2]
-            else:
-                initial_nav_id = nav_items[0][1]
+            # Create details rows for this nav_type
+            details_values = []
+            fields = {
+                "characters": CHARACTERS_FIELDS,
+                "places": PLACES_FIELDS,
+                "items": ITEMS_FIELDS
+            }[nav_type]
+            for i in range(7):
+                details_row = QLineEdit(details_section)
+                details_row.setAlignment(Qt.AlignCenter)
+                if i == 0:
+                    font = QFont("Arial", 13, QFont.Bold)
+                    font.setItalic(True)
+                    details_row.setFont(font)
+                    details_row.setStyleSheet("padding: 14px; color: yellow;")
+                    details_layout.addWidget(details_row, 3)
+                elif i == 1:
+                    details_row.setFont(QFont("Arial", 15, QFont.Bold))
+                    details_row.setStyleSheet("padding: 13px; color: lightblue; background-color: maroon;")
+                    details_layout.addWidget(details_row, 2)
+                else:
+                    details_row.setFont(QFont("Arial", 12))
+                    details_row.setStyleSheet("padding: 11px; color: white;")
+                    details_layout.addWidget(details_row, 2)
+                details_row.textChanged.connect(self.set_details_placeholders_tooltips)
+                details_row.editingFinished.connect(self.details_editing_finished)
+                details_values.append(details_row)
+            self.details_values_map[nav_type] = details_values
 
-        self._place_sections(content_layout, initial_nav_type)
+            # Image upload button
+            image_upload_button = QPushButton("Upload Image", details_section)
+            image_upload_button.setFont(QFont("Arial", 12))
+            image_upload_button.setStyleSheet("""
+                padding: 10px;
+                color: white;
+                background-color: #444;
+                border-radius: 6px;
+            """)
+            image_upload_button.clicked.connect(self.open_image_file_dialog)
+            details_layout.addWidget(image_upload_button)
 
-        # Simulate a click on the correct nav button
-        first_btn = self.nav_btn_map.get((initial_nav_type, initial_nav_id))
-        QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, initial_nav_type, initial_nav_id))
+            # Place widgets according to nav_type
+            if nav_type == "characters":
+                layout.addWidget(image_section, 0, 0, 3, 3)
+                layout.addWidget(details_section, 0, 3, 3, 6)
+            elif nav_type == "places":
+                layout.addWidget(image_section, 0, 0, 3, 5)
+                layout.addWidget(details_section, 0, 5, 3, 4)
+            else:  # items
+                layout.addWidget(image_section, 0, 0, 3, 4)
+                layout.addWidget(details_section, 0, 4, 3, 5)
 
-        for i in range(7):
-            details_row = QLineEdit(self.details_section)
-            details_row.setAlignment(Qt.AlignCenter)
-            if i == 0:
-                font = QFont("Arial", 13, QFont.Bold)
-                font.setItalic(True)
-                details_row.setFont(font)
-                details_row.setStyleSheet("padding: 14px; color: yellow;")
-                self.details_layout.addWidget(details_row, 3)
-            elif i == 1:
-                details_row.setFont(QFont("Arial", 15, QFont.Bold))
-                details_row.setStyleSheet("padding: 13px; color: lightblue; background-color: maroon;")
-                self.details_layout.addWidget(details_row, 2)
-            else:
-                details_row.setFont(QFont("Arial", 12))
-                details_row.setStyleSheet("padding: 11px; color: white;")
-                self.details_layout.addWidget(details_row, 2)
-            details_row.textChanged.connect(self.set_details_placeholders_tooltips)
-            details_row.editingFinished.connect(self.details_editing_finished)
-            self.details_values.append(details_row)
+            self.content_stack.addWidget(frame)
+            self.content_frames[nav_type] = {
+                "frame": frame,
+                "image_section": image_section,
+                "image_label": image_label,
+                "details_section": details_section,
+                "details_layout": details_layout,
+                "details_values": details_values,
+                "image_upload_button": image_upload_button,
+            }
 
-        # Image upload button
-        self.image_upload_button = QPushButton("Upload Image", self.details_section)
-        self.image_upload_button.setFont(QFont("Arial", 12))
-        self.image_upload_button.setStyleSheet("""
-            padding: 10px;
-            color: white;
-            background-color: #444;
-            border-radius: 6px;
-        """)
-        self.image_upload_button.clicked.connect(self.open_image_file_dialog)
-        self.details_layout.addWidget(self.image_upload_button)
+        self.layout.addLayout(self.content_stack, 1, 3, 10, 10)
 
-        # --- Notes ---
-        self.notes_frame = QFrame(content_frame)
+        # --- Notes Section (shared, not per nav_type) ---
+        self.notes_frame = QFrame(self)
         self.notes_frame.setFrameShape(QFrame.StyledPanel)
         self.notes_frame.setStyleSheet("background: #444; border: None;")
         notes_layout = QVBoxLayout(self.notes_frame)
@@ -291,7 +294,7 @@ class GalleryUI(QWidget):
                 padding: 5px;
             }
         """)      
-        
+
         self.toolbar_buttons()
 
         # Notes Edit Area
@@ -305,15 +308,34 @@ class GalleryUI(QWidget):
         notes_layout.addWidget(self.notes_toolbar, 2)
         notes_layout.addWidget(self.notes_edit, 3)
 
-        self.notes_scroll = QScrollArea(content_frame)
+        self.notes_scroll = QScrollArea(self)
         self.notes_scroll.setWidgetResizable(True)
         self.notes_scroll.setWidget(self.notes_frame)
         self.notes_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.notes_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.notes_scroll.setStyleSheet("background: transparent; border: none;")
 
-        content_layout.addWidget(self.notes_scroll, 4, 0, 2, 9)
-        self.layout.addWidget(content_frame, 1, 3, 10, 10)
+        self.layout.addWidget(self.notes_scroll, 11, 3, 2, 10)
+
+        # --- Initial nav_type and nav_id selection ---
+        if first_nav_type:
+            if not first_nav_type.endswith('s'):
+                initial_nav_type = first_nav_type + 's'
+            else:
+                initial_nav_type = first_nav_type
+        else:
+            initial_nav_type = nav_items[0][0] if nav_items else "characters"
+        if first_nav_id:
+            initial_nav_id = first_nav_id
+        else:
+            if len(nav_items[0]) == 4:
+                initial_nav_id = nav_items[0][2]
+            else:
+                initial_nav_id = nav_items[0][1]
+
+        # Simulate a click on the correct nav button
+        first_btn = self.nav_btn_map.get((initial_nav_type, initial_nav_id))
+        QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, initial_nav_type, initial_nav_id))
 
         # Simulate a search if search_with is provided
         if search_with is not None:
@@ -323,75 +345,6 @@ class GalleryUI(QWidget):
             self.last_search_options[1] = "All"
             self.last_search_options[2] = search_category
             QTimer.singleShot(0, self.emit_current_search_options)
-
-        # Simulate a click on the first nav button
-        if self.nav_buttons:
-            if not first_nav_type:
-                first_nav_type = nav_items[0][0]
-            else:
-                first_nav_type = first_nav_type + "s"
-            if not first_nav_id:
-                first_nav_id = nav_items[0][1]
-            first_btn = self.nav_btn_map.get((first_nav_type, first_nav_id))
-            QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, first_nav_type, first_nav_id))
-
-
-    def _place_sections(self, content_layout, nav_type):
-        # Hide and detach widgets before removing
-        self.image_section.hide()
-        self.details_section.hide()
-        self.image_section.setParent(None)
-        self.details_section.setParent(None)
-
-        print("Before remove/add:")
-        print("image_section geometry:", self.image_section.geometry())
-        print("details_section geometry:", self.details_section.geometry())
-        print("image_section parent:", self.image_section.parent())
-        print("details_section parent:", self.details_section.parent())
-
-        # Remove if already present (safe even if not present)
-        content_layout.removeWidget(self.image_section)
-        content_layout.removeWidget(self.details_section)
-
-        # Add image_section and details_section in the correct positions
-        if nav_type == "characters":
-            content_layout.addWidget(self.image_section, 0, 0, 3, 3)
-            content_layout.addWidget(self.details_section, 0, 3, 3, 6)
-        elif nav_type == "places":
-            content_layout.addWidget(self.image_section, 0, 0, 3, 5)
-            content_layout.addWidget(self.details_section, 0, 5, 3, 4)
-        else:
-            content_layout.addWidget(self.image_section, 0, 0, 3, 4)
-            content_layout.addWidget(self.details_section, 0, 4, 3, 5)
-
-        # Show widgets again
-        self.image_section.show()
-        self.details_section.show()
-
-        print("After add/show:")
-        print("image_section geometry:", self.image_section.geometry())
-        print("details_section geometry:", self.details_section.geometry())
-        print("image_section parent:", self.image_section.parent())
-        print("details_section parent:", self.details_section.parent())
-
-        # Force layout recalculation
-        content_layout.invalidate()
-        content_layout.activate()
-        self.image_section.updateGeometry()
-        self.details_section.updateGeometry()
-        self.updateGeometry()
-
-        # --- ADD THESE LINES ---
-        parent_frame = self.image_section.parentWidget()
-        if parent_frame:
-            parent_frame.updateGeometry()
-            parent_frame.adjustSize()
-            parent_frame.repaint()
-        self.layout.activate()
-        self.layout.update()
-        self.adjustSize()
-        self.repaint()
-        # --- END ADDITION ---
 
     def handle_nav_click(self, btn, nav_type, nav_id):
         # Highlight the selected button
@@ -429,10 +382,16 @@ class GalleryUI(QWidget):
 
         self.current_nav_type = nav_type
         self.current_nav_id = nav_id
+        self.show_nav_type(nav_type)
         self.emit_nav_item_edited_data() 
 
         # Update content area (details/image/text) as needed
         self.update_content_for_nav(nav_type, nav_id)
+
+    def show_nav_type(self, nav_type):
+        idx = ["characters", "places", "items"].index(nav_type)
+        self.content_stack.setCurrentIndex(idx)
+        self.current_content = self.content_frames[nav_type]
 
     def open_search_menu(self):
         sort, show, categories, stories = self.last_search_options
@@ -481,13 +440,11 @@ class GalleryUI(QWidget):
         details_data = self.parent_view.get_nav_item_data(nav_type, nav_id)
 
         self.current_saved_image_path = details_data.pop('image_path', None)
-        self.details_values[0].setText(nav_type.upper()[:-1])
+        self.current_content["details_values"][0].setText(nav_type.upper()[:-1])
         self.notes_edit.setHtml(details_data.pop('notes', ''))
 
         # Remove the image_section and details_section from the layout before re-adding with updated grid positions
-        parent_layout = self.image_section.parentWidget().layout()
         self.nav_item_type = nav_type
-        self._place_sections(parent_layout, nav_type)
 
         if self.current_saved_image_path:
             self.set_image(self.current_saved_image_path)
@@ -496,23 +453,23 @@ class GalleryUI(QWidget):
             self._original_pixmap = None
             self.image_upload_button.setText("Upload Image")
 
-        for i in range(1, len(self.details_values)):
+        for i in range(1, len(self.current_content["details_values"])):
             if self.details_fields and i-1 < len(self.details_fields) - 2:
                 field_name = self.details_fields[i-1]
                 label = field_name.capitalize()
                 if field_name == "name":
                     nav_label = self.nav_id_to_label.get((nav_type, nav_id), "")
-                    self.details_values[i].setText(nav_label)
-                    self.details_values[i].setReadOnly(True)
+                    self.current_content["details_values"][i].setText(nav_label)
+                    self.current_content["details_values"][i].setReadOnly(True)
                 else:
                     # Set value from db if present, else blank
-                    self.details_values[i].setText(details_data.get(field_name, ""))
-                    self.details_values[i].setReadOnly(False)
+                    self.current_content["details_values"][i].setText(details_data.get(field_name, ""))
+                    self.current_content["details_values"][i].setReadOnly(False)
             else:
-                self.details_values[i].setText("")
-                self.details_values[i].setReadOnly(False)
-                self.details_values[i].setPlaceholderText("")
-                self.details_values[i].setToolTip("")
+                self.current_content["details_values"][i].setText("")
+                self.current_content["details_values"][i].setReadOnly(False)
+                self.current_content["details_values"][i].setPlaceholderText("")
+                self.current_content["details_values"][i].setToolTip("")
 
     def open_image_file_dialog(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -522,7 +479,6 @@ class GalleryUI(QWidget):
             self.set_image(file_path)  # You can implement set_image as shown in a previous answer
 
     def set_image(self, image_path):
-        """Load, save, and display the image, scaled to fit the label."""
         nav_type = self.current_nav_type
         nav_id = self.current_nav_id
         label = self.nav_id_to_label.get((nav_type, nav_id), "image")
@@ -532,7 +488,6 @@ class GalleryUI(QWidget):
         filename = f"{nav_id}_{label}{ext}"
         filename = "".join(c if c.isalnum() or c in "._-" else "_" for c in filename)
         save_path = os.path.join(save_dir, filename)
-        # Only copy if source and destination are different
         if os.path.abspath(image_path) != os.path.abspath(save_path):
             shutil.copy(image_path, save_path)
         self._current_image_path = save_path
@@ -541,21 +496,20 @@ class GalleryUI(QWidget):
         if not pixmap.isNull():
             self._original_pixmap = pixmap
             self._update_image_pixmap()
-            self.image_upload_button.setText("Change Image")
+            self.current_content["image_upload_button"].setText("Change Image")
         else:
-            self.image_label.clear()
+            self.current_content["image_label"].clear()
             self._original_pixmap = None
-            self.image_upload_button.setText("Upload Image")  
+            self.current_content["image_upload_button"].setText("Upload Image") 
 
     def set_details_placeholders_tooltips(self, text):
-        # For handling change of placeholder to tooltip and viceversa based on presence or absence of text
         if not self.details_fields:
             return
+        details_values = self.current_content["details_values"]
         for idx in range(len(self.details_fields) - 2):
-            # Skip the first row if your logic requires (e.g., nav_type)
-            if idx >= len(self.details_values):
+            if idx >= len(details_values):
                 break
-            line_edit = self.details_values[idx + 1]
+            line_edit = details_values[idx + 1]
             label = self.details_fields[idx]
             if label == "role_profession":
                 label = label.replace("_", " / ").title()
@@ -571,7 +525,7 @@ class GalleryUI(QWidget):
 
     def details_editing_finished(self):
         sender = self.sender()
-        idx = self.details_values.index(sender)
+        idx = self.current_content["details_values"].index(sender)
         if idx == 0 or not self.details_fields or idx-1 >= len(self.details_fields):
             return  # Skip first row (nav_type) or out of bounds
         nav_type = self.current_nav_type
@@ -619,11 +573,11 @@ class GalleryUI(QWidget):
     def _update_image_pixmap(self):
         if hasattr(self, '_original_pixmap') and self._original_pixmap:
             scaled = self._original_pixmap.scaled(
-                self.image_label.size(),
+                self.current_content["image_label"].size(),
                 Qt.IgnoreAspectRatio,
                 Qt.SmoothTransformation
             )
-            self.image_label.setPixmap(scaled)
+            self.current_content["image_label"].setPixmap(scaled)
 
     def show_fullscreen_image(self, event):
         if hasattr(self, '_original_pixmap') and self._original_pixmap:
