@@ -86,7 +86,7 @@ class GameDashboardUI(QWidget):
         # Define menu buttons dynamically
         signals = [
             ("Oracles / Tables", self.oracles_tables_button_clicked),
-            ("Gallery Modal", self.gallery_modal_button_clicked),            
+            ("Gallery", self.gallery_modal_button_clicked),            
         ]
         button_width, button_height = 250, 60
         button_font_size = 20

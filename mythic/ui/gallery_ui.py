@@ -196,6 +196,7 @@ class GalleryUI(QWidget):
             image_section_layout.setContentsMargins(0, 0, 0, 0)
             image_section_layout.setSpacing(0)
             image_section_layout.addWidget(image_label)
+            image_label.mouseDoubleClickEvent = self.show_fullscreen_image
 
             # Details section
             details_section = QFrame(frame)
@@ -574,12 +575,20 @@ class GalleryUI(QWidget):
 
     def _update_image_pixmap(self):
         if hasattr(self, '_original_pixmap') and self._original_pixmap:
-            scaled = self._original_pixmap.scaled(
-                self.current_content["image_label"].size(),
-                Qt.IgnoreAspectRatio,
-                Qt.SmoothTransformation
-            )
-            self.current_content["image_label"].setPixmap(scaled)
+            if hasattr(self, 'current_content'):  # GalleryUI
+                scaled = self._original_pixmap.scaled(
+                    self.current_content["image_label"].size(),
+                    Qt.IgnoreAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                self.current_content["image_label"].setPixmap(scaled)
+            else:  # ThreadsGalleryUI
+                scaled = self._original_pixmap.scaled(
+                    self.image_label.size(),
+                    Qt.IgnoreAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                self.image_label.setPixmap(scaled)
 
     def show_fullscreen_image(self, event):
         if hasattr(self, '_original_pixmap') and self._original_pixmap:
@@ -1147,12 +1156,20 @@ class ThreadsGalleryUI(QWidget):
 
     def _update_image_pixmap(self):
         if hasattr(self, '_original_pixmap') and self._original_pixmap:
-            scaled = self._original_pixmap.scaled(
-                self.image_label.size(),
-                Qt.IgnoreAspectRatio,
-                Qt.SmoothTransformation
-            )
-            self.image_label.setPixmap(scaled)
+            if hasattr(self, 'current_content'):  # GalleryUI
+                scaled = self._original_pixmap.scaled(
+                    self.current_content["image_label"].size(),
+                    Qt.IgnoreAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                self.current_content["image_label"].setPixmap(scaled)
+            else:  # ThreadsGalleryUI
+                scaled = self._original_pixmap.scaled(
+                    self.image_label.size(),
+                    Qt.IgnoreAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                self.image_label.setPixmap(scaled)
 
     def show_fullscreen_image(self, event):
         if hasattr(self, '_original_pixmap') and self._original_pixmap:
