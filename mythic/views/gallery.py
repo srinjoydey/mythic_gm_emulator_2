@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget
 from sqlalchemy import func
-from ui.gallery_ui import GalleryUI, ThreadsGalleryUI
+from ui.gallery_ui import GalleryUI, ThreadsGalleryUI, ENTITY_FIELDS
 from models.db_config import session
 from models.master_tables import StoriesIndex, Characters, Places, Items, Notes, Threads, ThreadsNotes
 
@@ -160,34 +160,36 @@ class GalleryView(QWidget):
                 data = session.query(model).filter(model.id == model_id).first()
                 notes_edited_data = value.pop("notes", None)
                 if data:
+                    # Since all entities have the same structure, no need for type-specific handling
                     for data_field, data_value in value.items():
-                        setattr(data, data_field, data_value)
+                        if hasattr(data, data_field):  # Safety check
+                            setattr(data, data_field, data_value)
 
                     if notes_edited_data:
-                        model_type = model_type[:-1]
-                        notes_data = session.query(Notes).filter(Notes.type == model_type, Notes.type_id == model_id).first()
-                        notes_data.notes = notes_edited_data
-                        
-                    session.commit()
+                        model_type_singular = model_type[:-1]  # Remove 's' from end
+                        notes_data = session.query(Notes).filter(Notes.type == model_type_singular, Notes.type_id == model_id).first()
+                        if notes_data:
+                            notes_data.notes = notes_edited_data
+                    
+                session.commit()
 
     def get_nav_item_data(self, nav_type, nav_id):
         if self.view == "Characters":
             model = MODEL_MAP[nav_type]
             data = session.query(model).filter(model.id == nav_id).first()
-            nav_type = nav_type[:-1]
-            related_notes = session.query(Notes).filter(Notes.type == nav_type, Notes.type_id == nav_id).first()
+            nav_type_singular = nav_type[:-1]  # Remove 's' from end
+            related_notes = session.query(Notes).filter(Notes.type == nav_type_singular, Notes.type_id == nav_id).first()
             if data:
-                # Return a dict of all fields
-                data = {field: getattr(data, field, "") for field in self.ui.details_fields or []}
+                data_dict = {field: getattr(data, field, "") for field in ENTITY_FIELDS[:-1]}  # Exclude 'notes'
                 if related_notes:
-                    data["notes"] = related_notes.notes
-                return data
+                    data_dict["notes"] = related_notes.notes
+                return data_dict
             return {}
         else:
             data = session.query(Threads).filter(Threads.id == nav_id).first()
             related_notes = session.query(ThreadsNotes).filter(ThreadsNotes.thread_id == nav_id).first()
             if data:
-                data = {"id": data.id, "thread": data.thread, "image_path": data.image_path}
+                data = {"id": data.id, "thread": data.thread}
                 if related_notes:
                     data["notes"] = related_notes.notes
                 return data
@@ -303,12 +305,6 @@ class GalleryView(QWidget):
             if self.ui.current_nav_type and self.ui.current_nav_id:
                 model = MODEL_MAP[self.ui.current_nav_type]
                 data = session.query(model).filter(model.id == self.ui.current_nav_id).first()
-                if data:
-                    data.image_path = image_path
-                    session.commit()
-        else:
-            if self.ui.current_nav_id:
-                data = session.query(Threads).filter(Threads.id == self.ui.current_nav_id).first()
                 if data:
                     data.image_path = image_path
                     session.commit()

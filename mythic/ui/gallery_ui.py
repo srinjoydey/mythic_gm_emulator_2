@@ -6,9 +6,7 @@ import os
 import shutil
 
 
-CHARACTERS_FIELDS = ['name', 'race_religion', 'age', 'role_profession', 'social_status', 'economic_status', 'image_path', 'notes']
-PLACES_FIELDS = ['name', 'type', 'location', 'atmosphere_1', 'atmosphere_2', 'image_path', 'notes']
-ITEMS_FIELDS = ['name', 'material', 'rarity', 'image_path', 'notes']
+ENTITY_FIELDS = ['name', 'descriptor_1', 'descriptor_2', 'descriptor_3', 'descriptor_4', 'descriptor_5', 'image_path', 'notes']
 
 
 class GalleryUI(QWidget):
@@ -82,7 +80,7 @@ class GalleryUI(QWidget):
             self.search_box.setFixedSize(300, 42)
 
         # Create a QAction for the dialog button
-        dialog_action = QAction(QIcon("assets/icons/close_icon.png"), "Search Options", self.search_box)
+        dialog_action = QAction(QIcon("assets/icons/filter_icon.png"), "Search Options", self.search_box)
         dialog_action.setToolTip("Search options")
         self.search_box.addAction(dialog_action, QLineEdit.TrailingPosition)  # Add to the right
 
@@ -207,11 +205,7 @@ class GalleryUI(QWidget):
 
             # Create details rows for this nav_type
             details_values = []
-            fields = {
-                "characters": CHARACTERS_FIELDS,
-                "places": PLACES_FIELDS,
-                "items": ITEMS_FIELDS
-            }[nav_type]
+            fields = ENTITY_FIELDS
             for i in range(7):
                 details_row = QLineEdit(details_section)
                 details_row.setAlignment(Qt.AlignCenter)
@@ -229,7 +223,6 @@ class GalleryUI(QWidget):
                     details_row.setFont(QFont("Arial", 12))
                     details_row.setStyleSheet("padding: 11px; color: white;")
                     details_layout.addWidget(details_row, 2)
-                details_row.textChanged.connect(self.set_details_placeholders_tooltips)
                 details_row.editingFinished.connect(self.details_editing_finished)
                 details_values.append(details_row)
             self.details_values_map[nav_type] = details_values
@@ -244,6 +237,7 @@ class GalleryUI(QWidget):
                 border-radius: 6px;
             """)
             image_upload_button.clicked.connect(self.open_image_file_dialog)
+            image_upload_button.setEnabled(False)
             details_layout.addWidget(image_upload_button)
 
             # Place widgets according to nav_type
@@ -329,14 +323,18 @@ class GalleryUI(QWidget):
         if first_nav_id:
             initial_nav_id = first_nav_id
         else:
-            if len(nav_items[0]) == 4:
-                initial_nav_id = nav_items[0][2]
+            if nav_items:  # Check if nav_items is not empty
+                if len(nav_items[0]) == 4:
+                    initial_nav_id = nav_items[0][2]
+                else:
+                    initial_nav_id = nav_items[0][1]
             else:
-                initial_nav_id = nav_items[0][1]
+                initial_nav_id = None
 
-        # Simulate a click on the correct nav button
-        first_btn = self.nav_btn_map.get((initial_nav_type, initial_nav_id))
-        QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, initial_nav_type, initial_nav_id))
+        # Simulate a click on the correct nav button only if we have items
+        if nav_items:  # Only proceed if there are nav items
+            first_btn = self.nav_btn_map.get((initial_nav_type, initial_nav_id))
+            QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, initial_nav_type, initial_nav_id))
 
         # Simulate a search if search_with is provided
         if search_with is not None:
@@ -348,6 +346,10 @@ class GalleryUI(QWidget):
             QTimer.singleShot(0, self.emit_current_search_options)
 
     def handle_nav_click(self, btn, nav_type, nav_id):
+        # Handle case when nav_id is None (no items available)
+        if nav_id is None:
+            return
+        
         # Highlight the selected button
         # If btn is None, select the first available button
         if btn is None:
@@ -374,12 +376,8 @@ class GalleryUI(QWidget):
             font-weight: bold;
         """)
         self.selected_nav_btn = btn
-        if nav_type == 'characters':
-            self.details_fields = CHARACTERS_FIELDS
-        elif nav_type == 'places':
-            self.details_fields = PLACES_FIELDS
-        elif nav_type == 'items':
-            self.details_fields = ITEMS_FIELDS
+
+        self.details_fields = ENTITY_FIELDS
 
         self.current_nav_type = nav_type
         self.current_nav_id = nav_id
@@ -447,6 +445,7 @@ class GalleryUI(QWidget):
         # Remove the image_section and details_section from the layout before re-adding with updated grid positions
         self.nav_item_type = nav_type
 
+        self.current_content["image_upload_button"].setEnabled(True)
         if self.current_saved_image_path:
             self.set_image(self.current_saved_image_path)
         else:
@@ -455,9 +454,8 @@ class GalleryUI(QWidget):
             self.current_content["image_upload_button"].setText("Upload Image")
 
         for i in range(1, len(self.current_content["details_values"])):
-            if self.details_fields and i-1 < len(self.details_fields) - 2:
-                field_name = self.details_fields[i-1]
-                label = field_name.capitalize()
+            if i-1 < len(ENTITY_FIELDS) - 2:  # -2 for image_path and notes
+                field_name = ENTITY_FIELDS[i-1]
                 if field_name == "name":
                     nav_label = self.nav_id_to_label.get((nav_type, nav_id), "")
                     self.current_content["details_values"][i].setText(nav_label)
@@ -469,8 +467,6 @@ class GalleryUI(QWidget):
             else:
                 self.current_content["details_values"][i].setText("")
                 self.current_content["details_values"][i].setReadOnly(False)
-                self.current_content["details_values"][i].setPlaceholderText("")
-                self.current_content["details_values"][i].setToolTip("")
 
     def open_image_file_dialog(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -502,29 +498,6 @@ class GalleryUI(QWidget):
             self.current_content["image_label"].clear()
             self._original_pixmap = None
             self.current_content["image_upload_button"].setText("Upload Image") 
-
-    def set_details_placeholders_tooltips(self, text):
-        if not self.details_fields:
-            return
-        details_values = self.current_content["details_values"]
-        for idx in range(len(self.details_fields) - 2):
-            if idx >= len(details_values):
-                break
-            line_edit = details_values[idx + 1]
-            label = self.details_fields[idx]
-            if label in ("race_religion", "role_profession"):
-                label = label.replace("_", " / ").title()
-            elif label in ("atmosphere_1", "atmosphere_2"):
-                label = label[:-2].title()
-            else:
-                label = label.replace("_", " ").title()
-            value = line_edit.text()
-            if value:
-                line_edit.setPlaceholderText("")
-                line_edit.setToolTip(label)
-            else:
-                line_edit.setPlaceholderText(label)
-                line_edit.setToolTip("")
 
     def details_editing_finished(self):
         sender = self.sender()
@@ -751,7 +724,6 @@ class ThreadsGalleryUI(QWidget):
         self.current_nav_id = None
         self.nav_id_to_label = {}
         self.nav_btn_map = {}
-        self.current_saved_image_path = None
         self.current_notes = None
         if prev_view in ('game dashboard', 'characters list', 'threads list'):
             self.modal = True
@@ -796,7 +768,7 @@ class ThreadsGalleryUI(QWidget):
             self.search_box.setFixedSize(617, 42)
 
         # Create a QAction for the dialog button
-        dialog_action = QAction(QIcon("assets/icons/close_icon.png"), "Search Options", self.search_box)
+        dialog_action = QAction(QIcon("assets/icons/filter_icon.png"), "Search Options", self.search_box)
         dialog_action.setToolTip("Search options")
         self.search_box.addAction(dialog_action, QLineEdit.TrailingPosition)  # Add to the right
 
@@ -900,50 +872,6 @@ class ThreadsGalleryUI(QWidget):
             content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
 
-        # --- Image ---
-        self.image_section = QFrame(content_frame)
-        self.image_section.setStyleSheet("""
-            background-color: #333;
-        """)
-
-        content_layout.addWidget(self.image_section, 0, 0, 7, 9)
-
-        self.image_label = QLabel(self.image_section)
-        self.image_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.image_label.setAlignment(Qt.AlignCenter) 
-        self.image_section_layout = QVBoxLayout(self.image_section)
-        self.image_section_layout.setContentsMargins(0, 0, 0, 0)
-        self.image_section_layout.setSpacing(0)
-        self.image_section_layout.addWidget(self.image_label)
-        self.image_label.mouseDoubleClickEvent = self.show_fullscreen_image
-
-        # Image buttons toolbar
-        self.image_toolbar_frame = QFrame(content_frame)
-        self.image_toolbar_frame.setStyleSheet("""
-            QFrame {
-                background: #333;
-                border: 1px solid #444;
-                border-radius: 6px;
-            }
-        """)
-        self.image_toolbar_layout = QHBoxLayout(self.image_toolbar_frame)
-        self.image_toolbar_layout.setContentsMargins(0, 0, 0, 0)
-
-        content_layout.addWidget(self.image_toolbar_frame, 7, 0, 1, 9)
-
-        # Image upload button
-        self.image_upload_button = QPushButton("Upload Image", self.image_toolbar_frame)
-        self.image_toolbar_layout.addWidget(self.image_upload_button)
-
-        self.image_upload_button.setFont(QFont("Arial", 12))
-        self.image_upload_button.setStyleSheet("""
-            padding: 10px;
-            color: white;
-            background-color: #444;
-            border-radius: 6px;
-        """)
-        self.image_upload_button.clicked.connect(self.open_image_file_dialog)
-
         # --- Notes ---
         self.notes_frame = QFrame(content_frame)
         self.notes_frame.setFrameShape(QFrame.StyledPanel)
@@ -980,8 +908,8 @@ class ThreadsGalleryUI(QWidget):
         self.notes_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.notes_edit.textChanged.connect(self.notes_text_changed)
         self.current_notes = self.notes_edit
-        notes_layout.addWidget(self.notes_toolbar, 2)
-        notes_layout.addWidget(self.notes_edit, 3)
+        notes_layout.addWidget(self.notes_toolbar, 0)
+        notes_layout.addWidget(self.notes_edit, 1)
 
         self.notes_scroll = QScrollArea(content_frame)
         self.notes_scroll.setWidgetResizable(True)
@@ -990,7 +918,8 @@ class ThreadsGalleryUI(QWidget):
         self.notes_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.notes_scroll.setStyleSheet("background: transparent; border: none;")
 
-        content_layout.addWidget(self.notes_scroll, 8, 0, 5, 9)
+        # Notes now take the full content area
+        content_layout.addWidget(self.notes_scroll, 0, 0, 13, 9)
         self.layout.addWidget(content_frame, 1, 6, 10, 7)
 
         # Simulate a search if search_with is provided
@@ -1001,10 +930,10 @@ class ThreadsGalleryUI(QWidget):
             QTimer.singleShot(0, self.emit_current_search_options)
 
         # Simulate a click on the first nav button
-        if self.nav_buttons:
-            if not first_nav_id:
+        if self.nav_buttons and nav_items:  # Check both nav_buttons and nav_items
+            if not first_nav_id and nav_items:  # Also check nav_items here
                 first_nav_id = nav_items[0][0]
-            first_btn = self.nav_btn_map.get((first_nav_id))
+            first_btn = self.nav_btn_map.get(first_nav_id)
             QTimer.singleShot(0, lambda: self.handle_nav_click(first_btn, first_nav_id))
 
 
@@ -1083,48 +1012,7 @@ class ThreadsGalleryUI(QWidget):
         # Fetch current data from the view/db
         details_data = self.parent_view.get_nav_item_data(None, nav_id)
 
-        self.current_saved_image_path = details_data.pop('image_path', None)
         self.notes_edit.setHtml(details_data.pop('notes', ''))
-
-        if self.current_saved_image_path:
-            self.set_image(self.current_saved_image_path)
-        else:
-            self.image_label.clear()
-            self._original_pixmap = None
-            self.image_upload_button.setText("Upload Image")
-
-    def open_image_file_dialog(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Select Image", "", "Images (*.png *.jpg *.jpeg *.bmp *.gif)"
-        )
-        if file_path:
-            self.set_image(file_path)  # You can implement set_image as shown in a previous answer
-
-    def set_image(self, image_path):
-        """Load, save, and display the image, scaled to fit the label."""
-        nav_type = self.current_nav_type
-        nav_id = self.current_nav_id
-        label = self.nav_id_to_label.get(nav_id, "image")
-        ext = os.path.splitext(image_path)[1] or ".png"
-        save_dir = os.path.join("visuals", "threads")
-        os.makedirs(save_dir, exist_ok=True)
-        filename = f"{nav_id}_{label}{ext}"
-        filename = "".join(c if c.isalnum() or c in "._-" else "_" for c in filename)
-        save_path = os.path.join(save_dir, filename)
-        # Only copy if source and destination are different
-        if os.path.abspath(image_path) != os.path.abspath(save_path):
-            shutil.copy(image_path, save_path)
-        self._current_image_path = save_path
-        self.image_uploaded.emit(save_path)
-        pixmap = QPixmap(save_path)
-        if not pixmap.isNull():
-            self._original_pixmap = pixmap
-            self._update_image_pixmap()
-            self.image_upload_button.setText("Change Image")
-        else:
-            self.image_label.clear()
-            self._original_pixmap = None
-            self.image_upload_button.setText("Upload Image")  
 
     def notes_text_changed(self):
         sender = self.sender()
@@ -1149,32 +1037,6 @@ class ThreadsGalleryUI(QWidget):
     def emit_list_action_nav_item_and_close(self):
         self.emit_details_data_and_close()
         self.list_action_nav_item.emit(self.current_nav_type, self.current_nav_id)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._update_image_pixmap()
-
-    def _update_image_pixmap(self):
-        if hasattr(self, '_original_pixmap') and self._original_pixmap:
-            if hasattr(self, 'current_content'):  # GalleryUI
-                scaled = self._original_pixmap.scaled(
-                    self.current_content["image_label"].size(),
-                    Qt.IgnoreAspectRatio,
-                    Qt.SmoothTransformation
-                )
-                self.current_content["image_label"].setPixmap(scaled)
-            else:  # ThreadsGalleryUI
-                scaled = self._original_pixmap.scaled(
-                    self.image_label.size(),
-                    Qt.IgnoreAspectRatio,
-                    Qt.SmoothTransformation
-                )
-                self.image_label.setPixmap(scaled)
-
-    def show_fullscreen_image(self, event):
-        if hasattr(self, '_original_pixmap') and self._original_pixmap:
-            dlg = FullScreenImageDialog(self._original_pixmap, self)
-            dlg.showFullScreen()
 
     def toolbar_buttons(self):
         # Bold

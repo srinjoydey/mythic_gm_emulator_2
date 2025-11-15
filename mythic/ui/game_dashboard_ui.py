@@ -387,7 +387,7 @@ class CharactersThreadsTablesUI(QWidget):
             color: maroon;
         """)
         clear_all_button = QPushButton(close_row_container)
-        clear_all_button.setIcon(QIcon("assets/icons/close_icon.png"))
+        clear_all_button.setIcon(QIcon("assets/icons/clear_icon.png"))
         clear_all_button.setIconSize(QSize(25, 25))
         clear_all_button.setFont(QFont("Arial", 14, QFont.Bold))
         clear_all_button.setStyleSheet("""
