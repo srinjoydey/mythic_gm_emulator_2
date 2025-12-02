@@ -25,7 +25,7 @@ class GameDashboardUI(QWidget):
         self.chaos_factor = self.parent().chaos_factor
 
         # Define background image path (now managed here)
-        self.bg_image_path = "visuals/backgrounds/game_dashboard.png"
+        self.bg_image_path = "visuals/backgrounds/game_dashboard.jpg"
 
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
@@ -629,10 +629,10 @@ class CharactersThreadsTablesUI(QWidget):
                             break
                 if incomplete_row is not None:
                     break
-            if incomplete_row is not None:
-                # Only allow editing the incomplete cell, block all others
-                if table_cell.property("row_index") != incomplete_row:
-                    return
+        if incomplete_row is not None:
+            # Only allow editing the incomplete cell, block all others
+            if table_cell.property("row_index") != incomplete_row:
+                return
         # Emit edited data for any cell currently being edited
         if self.table_label == "threads":
             for le in self.scroll_widget.findChildren(QLineEdit):

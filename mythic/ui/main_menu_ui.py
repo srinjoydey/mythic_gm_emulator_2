@@ -275,7 +275,7 @@ class ExistingStoryUI(QWidget):
         self.selected_button = None
 
         # Define background image path (now managed here)
-        self.bg_image_path = "visuals/backgrounds/main_menu.jpg"
+        self.bg_image_path = "visuals/backgrounds/existing_story.jpg"
 
         # Configure grid layout dynamically
         self.layout = QGridLayout(self)
